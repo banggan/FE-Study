@@ -14,6 +14,7 @@
         if((typeof ctor === 'object' || typeof ctor === 'function') && ctor !==null){
             return res
         }
+        //if(res instanceOf Object) return res
         return obj;
     }
     ```
