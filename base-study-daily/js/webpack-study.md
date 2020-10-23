@@ -1,4 +1,5 @@
-####   webpack与构建发展史
+webpack与构建发展史
+
 - 为什么需要构建工具？
 > 转换ES6(浏览器版本不支持ES6语法)、转换JSX(不支持主流框架的语法)、css前缀补全和预处理器、压缩混淆、图片压缩
 - 前端构建的演变历史？
@@ -41,14 +42,15 @@
  test：指定匹配规则          use：指定使⽤的loader名称
 - plugins：插件配置
 >插件⽤于bundle⽂件的优化，资源管理和环境变量注
-⼊。作⽤于整个构建过程
-> 1. CommonsChunkPlugin：将chunks相同的模块代码提取成公共js
-> 2. CleanWebpackPlugin：清理构建⽬录
-> 3. ExtractTextWebpackPlugin：将css从bundle⽂件⾥提取成⼀个独⽴的css⽂件
-> 4. CopyWebpackPlugin：将⽂件或者⽂件夹拷⻉到构建的输出⽬录
-> 5. HtmlWebpackPlugin：创建html⽂件去承载输出的bundle
-> 6. UglifyjsWebpackPlugin：压缩js
-> 7. ZipWebpackPlugin：将打包出的资源⽣成⼀个zip包
+>⼊。作⽤于整个构建过程
+>
+>1. CommonsChunkPlugin：将chunks相同的模块代码提取成公共js
+>2. CleanWebpackPlugin：清理构建⽬录
+>3. ExtractTextWebpackPlugin：将css从bundle⽂件⾥提取成⼀个独⽴的css⽂件
+>4. CopyWebpackPlugin：将⽂件或者⽂件夹拷⻉到构建的输出⽬录
+>5. HtmlWebpackPlugin：创建html⽂件去承载输出的bundle
+>6. UglifyjsWebpackPlugin：压缩js
+>7. ZipWebpackPlugin：将打包出的资源⽣成⼀个zip包
 - mode
 > mode⽤于指定当前的构建环境是：production（默认）/development/none
 > 设置mode触发webpack内置的函数
@@ -499,12 +501,9 @@ const { entry, htmlWebpackPlugins } = setMPA();
 >
 >     ```javascript
 >     //.babelrc
->     {"plugins":["@babel/plugin-syntax-dynamic-import"] }
+>     {"plugins":["@babel/plugin-syntax-dynamic-import"] 
 >     ```
 >
->     
->
->     
 
 - webpack和ESLint结合
 
@@ -572,7 +571,6 @@ const { entry, htmlWebpackPlugins } = setMPA();
 >       }
 >      ```
 >
->      
 
 - webpack打包组件和基础库
 
@@ -580,56 +578,51 @@ const { entry, htmlWebpackPlugins } = setMPA();
 >
 >  webpack除了可以⽤来打包应⽤，也可以⽤来打包js库
 >
->  实现⼀个⼤整数加法库的打包
+>  - 实现⼀个⼤整数加法库的打包
 >
->  - 需要打包压缩版(适应于开发阶段)和⾮压缩版（发布上线）
->
+>   - 需要打包压缩版(适应于开发阶段)和⾮压缩版（发布上线）
 >  - ⽀持AMD/**CMD**/ESM模块引⼊
->
->- 库的⽬录结构和打包要求
->
+>   - 库的⽬录结构和打包要求
 >  - 打包输出的库名称：
->
 >    - 未压缩版：large-number.js
->
 >    - 压缩版：large-number.min.js
->
+> 
 >  - 目录结构：
->
->    - /dist
->
->    -- /large-number.js
->
->    -- /large-number.min.js
->
->    \- /webpack.config.js
->
->    \- package.json
->
->    \- index.js
->
->    \- src
->
->    -- index.js
->
->  - 支持的使用方式
->
->    - ESModule: import * as largeNumber from 'large-number'; 
->    -  COMMONJS: const largeNumber = require('large-number');
->    -  AMD: require(['large-number'],function(largeNumber){})
->    -  script标签引⼊：<script src="https://unpkg.com/large-number"> </script>
+> 
+>    - ​	/dist
+> 
+>      ​	-- /large-number.js
+> 
+>      ​	-- /large-number.min.js
+> 
+>      ​	--/webpack.config.js
+>    
+>      ​	- package.json
+>    
+>      ​	- index.js
+>    
+>         -src
+>    
+>        -- index.js
+>    
+>      - 支持的使用方式
+>    
+>  - ESModule: import * as largeNumber from 'large-number'; 
+>      - COMMONJS: const largeNumber = require('large-number');
+>  - AMD: require(['large-number'],function(largeNumber){})
+>   - script标签引⼊：<script src="https://unpkg.com/large-number"> </script>
 >
 >  - 如何将库暴露出去？
->
->    library:指定库的全局变量
->
->    libraryTarget:⽀持库引⼊的⽅式
->
->    ```javascript
+> 
+> library:指定库的全局变量
+> 
+>libraryTarget:⽀持库引⼊的⽅式
+> 
+>```javascript
 >    module.exports = {
->    	mode:"production",
+>	mode:"production",
 >    	entry:{
->    		"large-number":"./src/index.js",
+>		"large-number":"./src/index.js",
 >    		"large-number.min":"./src/index.js"
 >    	},
 >    	output:{
@@ -640,36 +633,36 @@ const { entry, htmlWebpackPlugins } = setMPA();
 >    	}
 >    }
 >    ```
->
->  - 如何只针对.min文件压缩
->
->    通过include设置只压缩.min.js结尾的文件，区别uglifyPlugin的好处是：如果碰到es6代码不能解析他不会报错
->
->    安装：cnpm install terser-webpack-plugin -D
->
->    ```javascript
+>    
+>     - 如何只针对.min文件压缩
+>    
+>       通过include设置只压缩.min.js结尾的文件，区别uglifyPlugin的好处是：如果碰到es6代码不能解析他不会报错
+>    
+>   安装：cnpm install terser-webpack-plugin -D
+> 
+>```javascript
 >    const TerserPlugin = require('terser-webpack-plugin');
->    optimization:{
+>optimization:{
 >    	minimize: true,
->    	minimizer:[
+>	minimizer:[
 >    		new TerserPlugin({
 >    			inslude: /\.min\.js$/, 
 >    		})
 >    	]
 >    }
 >    ```
->
->  - 设置入口文件
->
+>    
+>     - 设置入口文件
+>    
 >    ```javascript
 >    //package.json的main字段为index.js
->    if(process.env.NODE_ENV === "production"){
->     module.exports = require('./dist/large-number.min.js')
->    } else {
->     module.exports = require('./dist/large-number.js') }
+>if(process.env.NODE_ENV === "production"){
+> module.exports = require('./dist/large-number.min.js')
+>} else {
+>    module.exports = require('./dist/large-number.js') }
 >    ```
->
 >    
+>     
 
 - webpack实现SSR
 
@@ -1290,13 +1283,12 @@ const { entry, htmlWebpackPlugins } = setMPA();
   >   - polyfill.io官⽅提供的服务
   >
   >   <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
-  >
-  >   - 基于官⽅⾃建polyfill服务
-  >
-  >   ```javascript
+  >  - 基于官⽅⾃建polyfill服务
+  > 
+  >```javascript
   >   //huayang.qq.com/polyfill_service/v2/polyfill.min.js?unknown=polyfill&features=Promise,Map,Set
   >   ```
-
+  
 - 体积优化策略总结
 
   - Scope hoisting

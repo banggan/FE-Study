@@ -246,10 +246,40 @@
     obj.reduce((acc,cur)=>{
         cur instanceof Array ? [...acc,deepCopy(cur)]:[...acc,cur]
     },[])
+    //版本3:考虑symbol属性
+    const deepCopy = (obj,hash = new WeakMap())=>{
+        //判断是否合法
+        if(typeof obj !== 'object' || obj === null) return
+        //存在直接返回
+        if(hash.has(obj)) return hash.get(obj);
+        
+        const cloneObj = Array.isArray(obj) ? []:{};
+        hash.set(obj,cloneObj);
+
+        const symKeys = Object.getOwnPropertySymbols(obj);
+        if(symKeys.length){
+            symKeys.forEach((symKey)=>{
+                if(typeof obj[symKey] === 'object' && obj[symKey] !== null){
+                    cloneObj[symKey] = deepCopy(obj[symKey],hash)
+                }else{
+                    cloneObj[symKey] = obj[symKey]
+                }
+            })
+        }
+        
+        for(let i in obj){
+            if(Object.prototype.hasOwnProperty.call(obj,i)){
+                cloneObj[i] = typeof obj[i] === 'object' && obj[i] !== null ? deepCopy(obj[i],hash):obj[i];
+            }
+        }
+        return cloneObj;
+
+    }
 
     ```
 - promise all 和 race
     ```javascript
+    //Promise.all是支持链式调用的，本质上就是返回了一个Promise实例，通过resolve和reject来改变实例状态
     const myAll = function(promises){
         return new Promise((resolve,reject)=>{
             const len = promises.length;
@@ -260,13 +290,173 @@
                     res[i] = data;
                     index++;
                     if(index === len) resolve(res)
-                })
-            }.catch(err=>{
+                }).catch(err=>{
                 reject(err)
+                })
+            }
+        })
+    }
+    //race
+    const myRace = function(promises){
+        return new Promise((resolve,reject)=>{
+            promises.forEach(p=>{
+                Promise.resolve(p).then(
+                    val => resolve(val),
+                    err=> reject(err),
+                )
             })
         })
     }
+    ```
+- 利用fetch api实现请求超时或者错误的时候做处理
+    ```javascript
+    //利用promise.race()
+    //AbortController 用于手动终止一个或多个DOM请求，通过该对象的AbortSignal注入的Fetch的请求中。所以需要完美实现timeout功能加上这个就对了
+    let controller = new AbortController();
+    let signal = controller.signal;
+    let timeoutPromise = (timeout)=>{
+        return new Promise((resolve,reject)=>{
+            setTimeout(()=>{
+                //请求超时
+                resolve(new Response("timeout", { status: 504, statusText: "timeout " }));
+                controller.abort();//终止请求
+            },timeout)
+        })
+    }
+    let fetchPromise = (url){
+        return fetch(url,{
+            signal:signal
+        })
+    }
+    Promise.race([timeoutPromise(3000),fetchPromise("https://www.baidu.com")])
+        .then(resp=>{
+            console.log('resp')
+            if(resp.status === 504){
+                fetchPromise("https://www.baidu.com")
+            }
+        })
+        .catch(err=>{
+            console.log(err);
+            fetchPromise("https://www.baidu.com")
+        })
+    ```
+- 实现有并行限制的Promise调度器
+    ```javascript
+    //
+    addTask(1000, '1');
+    addTask(500, '2');
+    addTask(300, '3');
+    addTask(400, '4');
+    // output: 2 3 1 4
+    //执行流程：
+    //1.其实1、2两个任务开始执行
+    //2.500ms时，2任务执行完毕，输出2，任务3开始执行
+    //3.800ms时，3任务执行完毕，输出3，任务4开始执行
+    //4.1000ms时，1任务执行完毕，输出1，此时只剩下4任务在执行
+    //5.1200ms时，4任务执行完毕，输出4
+    //分析：最多时存在两个并行的Promise，并且一个Promise执行完成之后，执行新的Promise，并且新执行的Promise不会影响到另一个正在执行的Promise
+    //其实从Promise依序进行执行，可以使用队列先进先出的特性，add操作知识每次用队列中插入Promise Creator，判断当前执行数量是否小于2，如果小于2就从队列中弹出Promise Creator执行并给执行的Promise绑定then函数，then函数被调用就说明当前Promise已经执行完成，重复当前操作，可以看出是一个递归的操作
+    class Scheduler {
+        constructor() {
+            this.queue = [];//存储Promise Creator的数组queue
+            this.maxCount = 2;//最大并行个数maxCount
+            this.runCounts = 0;//当前执行的Promise个数runCOunts
+        }
+        add(promiseCreator) {//add操作函数就是往队列中插入Promise Generator函数
+            this.queue.push(promiseCreator);
+        }
+        //接来下就是request函数：每次从队列中取出Promise Generator并执行，此Promise执行完成之后应该调用递归调用request函数做到执行下一个Promise。
+        request(){
+            if(!this.quene || !this.quene.length || this.runCounts >= this.maxCount) return 
+            this.runCounts ++ ;
+            this.quene.shift()().then(()=>{
+                this.runCounts -- ;
+                this.request();
+            })
+        }
+        //还差最后一个启动函数，需要将2个Promise启动起来
+        taskStart(){
+            for(let i=0;i<this.maxCount;i++){
+                this.request();
+            }
+        }
+    }
+    const timeout = time => new Promise(resolve => {
+        setTimeout(resolve, time);
+    })
+    const scheduler = new Scheduler();
+    const addTask = (time,order) => {
+        scheduler.add(() => timeout(time).then(()=>console.log(order)))
+    }
+    //test
+    addTask(1000, '1');
+    addTask(500, '2');
+    addTask(300, '3');
+    addTask(400, '4');
+    scheduler.taskStart()
 
+    ```
+- 渲染几万条数据不卡住页面
+    ```javascript
+    //渲染大数据时，合理使用 createDocumentFragment 和 requestAnimationFrame ，将操作切分为一小段一小段执行
+    setTimeout(()=>{
+        //插入10万数据
+        const total = 100000;
+        //一次插入的数据
+        const once = 20;
+        //插入数据需要的次数
+        const loopCount = Math.ceil(total/once);
+        let countOfRender = 0;
+        const ul = document.querySelector('ul');
+        //添加数据
+        function add(){
+            const fragment =  document.createDocumentFragment();
+            for(let i=0;i<once;i++){
+                const li = document.createElement('li');
+                li.innerText = Math.floor(Math.random() * total);
+                fragment.appendChild(li)
+            }
+            ul.appendChild(fragment);
+            countOfRender ++;
+            loop();
+        }
+        function loop(){
+            if(countOfRender <loopCount){
+                window.requestAnimationFrame(add);
+            }
+        }
+        loop();
+    },0)
+    ```
+- 将VirtualDom转化为真实DOM结构 
+    ```javascript
+    //vnode的结构{ tag,attrs,children}
+    function render(vnode,container){
+        container.appendChild(_render(vnode))
+    }
+    function _render(vnode){
+        //数字类型转为字符串类型
+        if(typeof vnode === 'number'){
+            vnode = String(vnode)
+        }
+        //字符串类型直接就是文本节点
+        if(typeof vnode === 'string'){
+            return document.createTextNode(vnode)
+        }
+        //普通的dom
+        const dom = document.createElement(vnode.tag);
+        if(vnode.attrs){//遍历dom的属性
+            Object.keys(vnode.attrs).forEach(key =>{
+                const value = vnode.attrs[key];
+                dom.setAttribute(key,value)
+            })
+        }
+        //子dom进行递归处理
+        vnode.children.forEach(child =>{
+            render(child,dom)
+        })
+        return dom
+    }
     ```
 - 一个整数是不是回文
     ```javascript
@@ -384,24 +574,20 @@
     ```
 - 函数柯⾥化add
     ```javascript
-    const add = function(){
-        let args,chain;
-        args = Array.prototype.slice.call(arguments);
-        console.log('进入add --- args',args)
-        chain = function(){
-            var sub_arg = Array.prototype.slice.call(arguments);
-            console.log('进入chain --- sub_arg',sub_arg)
-            return add.apply(null,args.concat(sub_arg));//args.concat(sub_arg)把全部参数聚集到参数的入口为一个参数
+
+    function add() {
+        const _args = [...arguments];
+        function fn() {
+            _args.push(...arguments);
+            return fn;
         }
-        chain.valueOf = function(){
-            console.log('valueOf --- args',args)
-            return args.reduce((a,b)=>{
-                return a+b;
-            },0)
+        fn.toString = function() {
+            return _args.reduce((sum, cur) => sum + cur);
         }
-        return chain;
+        return fn;
     }
     ```
+
 #### 数组相关
 - 数组展平
     - 数组扁平化
@@ -465,5 +651,45 @@
             res[i] = fn.apply(this,[this[i],i,this])
         }
         return res;
+    }
+    ```
+- filter 方法
+    ```javascript
+    //filter的参数:
+    const myFilter = function(callback){
+        if(this == undefined){
+            throw new TypeError('this is null or not undefined');
+        }
+        if(typeof callback !== 'function'){
+            throw new TypeError(callback + 'is not a function');
+        }
+        const res = [];
+        let len = this.length;
+        for(let i = 0;i<len;i++){
+            let item = this[i];
+            if(callback(item,i,this)){
+                 res.push(this[i])
+            }
+        }
+        return res
+    }
+    ```
+- foreach 方法
+    ```javascript
+    //foreach和map类似 但是没有返回值:
+    const myForrach = function(callback){
+        if(this == undefined){
+            throw new TypeError('this is null or not undefined');
+        }
+        if(typeof callback !== 'function'){
+            throw new TypeError(callback + 'is not a function');
+        }
+        const res = [];
+        let len = this.length;
+        let k = 0;
+        for(let i=0;i<len;i++){
+            callback.apply(this.this[i],i,this);
+            k++;
+        }
     }
     ```
