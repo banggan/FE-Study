@@ -148,15 +148,15 @@
     ```
 - 防抖函数
     ```javascript
-    //所谓防抖，就是指在触发事件后在n秒内函数只能执行一次，如果在n秒内又触发了事件，则会重新计算函数执行时间
+    //所谓防抖，某个函数在某段时间内，无论触发多少次回调，都只执行最后一次，可以理解为司机等待最后一个人进入后关门，每次新进一个，就把定时器清空重新挤时
     //对于短时间内连续触发的事件，防抖在于让某个时间内，事件函数只执行一次
     //按钮点击 服务端验证
     //立即执行
     const debounce = function(fn,delay){
-        let timer = null;
+        let timer = null; //闭包缓存一个定时器id
         return (...args)=>{
-            clearTimeout(timer)
-            timer = setTimeout(()=>{
+            if(timer) clearTimeout(timer)
+            timer = setTimeout(()=>{ 
                 fn.apply(this,args)
             },delay)
         }
@@ -180,17 +180,31 @@
 - 节流函数
     ```javascript
     //所谓节流，就是指连续触发事件但是在 n 秒中只执行一次函数
-    //1. 拖拽场景 2. 缩放场景 3. 动画场景
-    const throttle = function(fn,delay){
-        let flag  = true ;
+    //某个函数在3s内只执行一次，在3s内无视后来产生的函数调用请求，理解为水龙头防水，3s一滴
+    //应用场景：1. 拖拽场景 2. 缩放场景 3. 动画场景
+    
+    //前沿节流：利用时间戳来判断是否已经到执行的时间，记录上次执行的时间戳，然后每次触发事件执行回调，回调中判断当前时间戳和上次执行时间戳的间隔是否到达时间差，是就执行并且更新上次的时间戳，循环
+    const throttle = (fn,delay)=>{
+        let previous = 0;//记录上次执行的时间戳
+        return (...args)=>{
+            let now += new Date();//获取当前时间
+            if(now - previous > delay){//大于等于就把previous更新并执行fn
+                previous = now；
+                fn.apply(this,args)
+            }
+        }
+    }
+    //延迟节流：利用定时器，当事件触发的时候，设置延迟的定时器，每次触发事件的时候，如果存在定时器，则回调不执行方法，知道定时器触发，handler被清除，重新设置定时器
+    const throttle = (fn,delay)=>{
+        let timer = null;
         return (...args)=>{
             let context = this;
-            if(!flag) return 
-            flag = false;
-            setTimeout(()=>{
-                fn.apply(context.args);
-                flag = true;
-            })     
+            if(!timer){
+                timer = setTimeout(()=>{
+                    fn.apply(context,args);
+                    timer = null;
+                },delay)
+            }
         }
     }
 
@@ -586,6 +600,9 @@
         }
         return fn;
     }
+    //箭头函数
+    const currying =(fn,...args)=>
+        args.length < fn.length?(...argmentxss)=>currying(fn,...args,...argments):fn(...args)
     ```
 
 #### 数组相关
