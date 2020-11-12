@@ -18,7 +18,7 @@
         return obj;
     }
     ```
-- 实现call/apply
+- 实现call/apply/bind
     ```javascript
     //call() 方法在使用一个指定的 this 值和若干个指定的参数值的前提下调用某个函数或方法
     //call 改变了this指向，调用函数
@@ -32,9 +32,11 @@
         }
         //参数数组放到要执行的函数的参数里面去    eval 方法拼成一个函数
         var res = eval('ctx.fn('+args+')')  //2
+        //var res = ctx.fn(...args)
         delete ctx.fn;//3. fn 是对象的属性名，反正最后也要删除它
         return res
     }
+
     //apply的区别在于call是传参数列表，apply传的是数组
     Function.prototype.apply = function(ctx,arr){
         var ctx = ctx || window;
@@ -51,6 +53,23 @@
         }
         delete ctx.fn
         return res
+    }
+    //bind
+    Function.prototype.bind = function (obj){
+        if(typeof this !== 'function'){ //非函数处理
+            throw new Error("Function.prototype.bind - what is trying to b e bound is not callable");
+        }
+        var args = Array.prototype.slice.call(arguments, 1); // 第0位是this
+        var self = this;
+        var fn_ = function(){}; //创建一个空白函数
+        fn_.prototype =  this.prototype;
+        var bound = function(){
+            let params = [...args,...arguments]
+            let obj = this.instanceof fn_ ? this:obj;
+            self.apply(obj, params);
+        }
+        bound.prototype = new fn_()
+        return bound;
     }
     ```
 - 实现bind
@@ -291,34 +310,203 @@
     }
 
     ```
-- promise all 和 race
+- promise、promise all 和 race
     ```javascript
-    //Promise.all是支持链式调用的，本质上就是返回了一个Promise实例，通过resolve和reject来改变实例状态
-    const myAll = function(promises){
+    //excutor 执行构造器 Promise：构造promise函数对象
+    function Promise(excutor){
+        const _that = this;
+        _that.status = 'pending'; //promise绑定status属性，初始值pending
+        _that.data = undefined;  //promise绑定data指定一个存储结果的属性
+        _that.callbacks = [];    //每个元素的结构：{ onFulfilled(){}, onRejected(){}}
+
+        function resolve(value){
+            if(_that.status !== 'pending') return    //如果当前状态不是pending直接结束
+            _that.status = 'resolved' //改状态
+            _that.data = value;    //保存数据
+            if(_that.callbacks.length >0){ // 如果有待执行callback 函数，立刻异步执行回调函数
+                setTimeout(()=>{
+                    _that.callbacks.forEach(callbackobj =>{
+                        callbackobj.onFulfilled(value)
+                    })
+                })
+            }
+        }
+        function reject(reason){
+            if(_that.status !== 'pending') return    //如果当前状态不是pending直接结束
+            _that.status = 'rejected' //改状态
+            _that.data = reason;    //保存数据
+            if(_that.callbacks.length >0){ // 如果有待执行callback 函数，立刻异步执行回调函数
+                setTimeout(()=>{
+                    _that.callbacks.forEach(callbackobj =>{
+                        callbackobj.onRejected(reason)
+                    })
+                })
+            }
+        }
+        //立刻同步执行 excutor
+        try{
+            excutor(resolve,reject)
+        }.catch(error){  //如果执行器抛出异常，promise对象变为 rejected 状态
+            reject(error)
+        }
+    }
+    /*
+        Promise原型对象的 then() --- *思路  
+          1、指定成功和失败的回调函数
+          2、返回一个新的 promise 对象
+          3、返回promise的结果由 onFulfilled/onRejected执行结果决定
+          4、指定 onFulfilled/onRejected的默认值
+    */
+    Promise.prototype.then = function(onFulfilled,onRejected){
+        onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : reason => reason //向后传递成功的value
+        //指定默认的失败的回调（实现错误/异常穿透的关键点）
+        onRejected = typeof onRejected === 'function' ? onRejected : reason => { //向后传递失败的reason
+            throw reason
+        }
+        const _that = this;
         return new Promise((resolve,reject)=>{
-            const len = promises.length;
-            const res = [];
-            let index = 0;
-            for(let i =0;i<len;i++){
-                Promise.resolve(promise[i]).then(data=>{
-                    res[i] = data;
-                    index++;
-                    if(index === len) resolve(res)
-                }).catch(err=>{
-                reject(err)
+            //调用指定的回调函数处理，根据执行结果，改变return的promise的状态
+            function handle(callback){
+                //1. 如果抛出异常，return 的promise就会失败，reason 就是 error
+                //2. 如果回调函数返回的不是promise，return的promise就会成功，value就是返回的值
+                //3.如果回调函数返回的是promise，return的promise的结果就是这个promise的结果
+                try{
+                    const result = callback(_that.data)
+                    if(result instanceof Promise){
+                        result.then(resolve,reject)
+                    }else{
+                        resolve(result)
+                    }
+                }catch(error){
+                    reject(error)
+                }
+            }
+            if(_that.status === 'pending'){//假设当前状态还是 pending 状态，将回调函数 保存起来
+                _that.callbacks.push({
+                    onFulfilled(value){
+                        handle(onFulfilled)//改promise的状态为 onFulfilled状态
+                    },
+                    onRejected(reason) {
+                        handle(onRejected)  //改promise的状态为 onRejected状态
+                    }
+                })
+            }else if(_that.status === 'resolved'){//如果当前是resolved状态，异步执行onresolved并改变return的promise状态
+                setTimeOut(()=>{
+                    handle(onFulfilled)
+                })
+            }else{//如果当前是rejected状态，异步执行onRejected并改变return的promise状态
+                setTimeOut(()=>{
+                    handle(onRejected)
                 })
             }
         })
     }
-    //race
-    const myRace = function(promises){
+    /*
+        Promise原型对象的 catch()
+        指定失败的回调函数
+        返回一个新的 promise 对象
+    */
+    Promise.prototype.catch = function(onRejected){
+        return this.then(undefined,onRejected)
+    }
+    /*
+        Promise原型对象的 finally()
+    */
+    Promise.prototype.finally = function(callback){
+        return this.then(value=>{
+            Promise.resolve(callback(value))
+        },reason=>{
+            Promise.reject(callback(reason))
+        })
+    }
+    /*
+        Promise原型对象的 resolve()
+        返回指定结果成功的promise对象
+    */
+    Promise.prototype.resolve = function(value){
         return new Promise((resolve,reject)=>{
-            promises.forEach(p=>{
-                Promise.resolve(p).then(
-                    val => resolve(val),
-                    err=> reject(err),
-                )
+            if(value instanceof Promise){ // 使用value的结果作为promise的结果
+                value.then(resolve,reject)
+            }else{
+                resolve(value)
+            }
+        })
+    }
+    /*
+        Promise原型对象的 reject()
+        返回指定结果失败的promise对象
+    */
+    Promise.prototype.resolve = function(reason){
+        return new Promise((resolve,reject)=>{
+            reject(reason)
+        })
+    }
+    /*
+        Promise函数对象的all()
+        返回了一个Promise实例，只有当所有的promise成功时才成功，否则一个失败就失败
+    */
+    Promise.all = function(promises){
+        return new Promise((resolve,reject)=>{
+            const len = promises;
+            const res = [];
+            let index = 0 ;
+            for(let i=0;i>len;i++){
+                Promise.resolve(promises[i]).then(data=>{
+                    res[i] = data;
+                    index ++;
+                    if(index === len) resolve(res)
+                }).catch(error=>{
+                    reject(error)
+                })
+            }
+        })
+    }
+    /*
+        Promise函数对象的race()
+        返回了一个Promise实例，其结果由第一个完成的promise来决定
+    */
+    Promise.race = function(promises){
+        return new Promise((resolve,reject)=>{
+            promises.forEach(promise=>{
+                Promise.resolve(promise).then(data=>{
+                    resolve(date)
+                },error=>{
+                    reject(error)
+                })
             })
+        })
+    }
+    ```
+- Promise 封装Ajax方法
+    ```javascript
+    //
+    function myajax(methods,url,data){
+        return new Promise((resolve,reject)=>{
+            let xhr = new XMLHttpRequest()
+            xhr.open(methods,url,true)
+            xhr.send(data);
+            xhr.onreadystatechange = ()=>{
+                if(xhr.status === 200 && xhr.readystate === 4){
+                    resolve(xhr.reponseText)
+                }else{
+                    reject(chr.status)
+                }
+            }
+        })
+    }
+    ```
+- 异步加载图片
+    ```javascript
+    function loadImageAsync(url){
+        return new Promise((resolve,reject){
+            const image = new Image()
+            image.onload = ()=>{
+                resolve(image)
+            }
+            image.onerror = ()=>{
+                reject(new Error('error url'+url))
+            }
+            image.src = url;
         })
     }
     ```
@@ -441,6 +629,89 @@
         }
         loop();
     },0)
+    ```
+- 双向绑定
+    ```javascript
+    //Object.defineProperty 写法
+    let vm = {}
+    let obj={
+        age:'12'.
+        name:'luncy'
+    }
+    for(let key in obj){
+        if(obj.hasOwnProperty(key)){
+            Object.defineProperty(vm,key,{
+                get:()=>{
+                     console.log(`getting ${key}!`);
+                     return obj[key]
+                },
+                set:()=>{
+                     console.log(`setting ${key}!`);
+                     obj[key] = value
+                },
+            })
+        }
+    }
+    obj.age='111';
+    vm.age = '112'
+    //proxy
+    let vm = new Proxy(obj,{
+        get:(target,propKey,receiver)=>{
+            console.log(`getting ${propKey}!`);
+            return Reflect.get(target, propKey, receiver);
+        },
+        set:(target,propKey,value,receiver)=>{
+            console.log(`setting ${propKey}!`);
+            return Reflect.set(target, propKey,value,receiver);
+        }
+    })
+    ```
+- JS发布订阅模式
+    ```javascript
+    let pubSub={
+        list:{},// 存放事件和对应的处理方法
+        on:(key,fn)=>{//订阅
+            if(!this.list[key]){
+                this.list[key] = []
+            }
+            this.list[key].push(fn);
+        },
+        emit:()=>{
+            var key = Array.prototype.shift.call(arguments);
+            if(! this.list[key]) return false;
+            for(let i=0;i<this.list[key].length;i++){
+                var handle = this.list[key][i]
+                handle.apply(this,argargumentss)
+            }
+        },
+        off:(key,fn)=>{
+            let fnLists = this.list[key];
+            if(!fnLists) return
+            if(!fn){
+                fnLists.length =0
+            }else{
+                fnLists.forEach((item,index)=>{
+                    if(item === fn){
+                        fnLists.splice(index,1)
+                    }
+                })
+            }
+        }
+    }
+    ```
+- JS获取url
+    ```javascript
+    let test='?ie=utf-8&f=8&rsv_bp=1&rsv_idx=1&tn=baidu&wd=21331&rsv_pq=b8627e62001efbb9&rsv_t=eef5sqIQ98s66yOwueYH5BWlFUARj0PkHBdCA4ahbSVYQA5qO9MBoZPC0mU&rqlang=cn&rsv_enter=1&rsv_dl=tb&rsv_sug3=5&rsv_sug1=1&rsv_sug7=100&rsv_sug2=0&inputT=509&rsv_sug4=509'
+    function f(str){
+        let str1 = str.slice(1);
+        let arr = str1.split('&');
+        let map = new Map();
+        arr.map(item =>{
+            const [key,value] = item.split('=');
+            map.set(key,decodeURIComponent(value))
+        })
+        return map
+    }]
     ```
 - 将VirtualDom转化为真实DOM结构 
     ```javascript
@@ -627,12 +898,24 @@
             return pre.concat(Array.isArray(cur) ? flat(cur):cur)
         },[])
     }
-    //利用es6的flat
+    //利用es6的flat，默认只拉平一层，需要拉平多层需要传递整数，
     arr = arr.flat(Infinity);
     //扩展运算符
     while(arr.some(Array.isArray())){
         arr = [].concat(...arr)
     }
+    //some,concat 递归
+    function flattenDeep(arr) {
+      const isDeep = arr.some(item => item instanceof Array)  // 验证arr中，还有没有深层数组
+      if (!isDeep) {   // 已经是flaten [1, 2, 3, 4] 直接返回
+        return arr 
+      }
+      const res = Array.prototype.concat.apply([], arr)
+      return flattenDeep(res)  // 递归
+    }
+    
+    const arr = flat([[1, 2], 3, [4, 5, [6, 7, [8, 9, [10, 11]]]]])
+    // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     ```
 - 数组求交集
     ```javascript
@@ -654,6 +937,67 @@
         return res;
     }
 
+    ```
+- 找到到数组中第一个非重复的数，[ 1, 1, 2, 2, 3, 4, 4, 5 ] 。=> 第一个非重复的数为 3
+    ```javascript
+    //1.使用map去重；创建一个空map，遍历原始数组，把数组的每一个元素作为key存到map中，因为map不会出现相同的key,所有最后得到的所有的key就是去重后的结果
+    function uniq(arr){
+        let hashmap = new Map();
+        let res = [];
+        for(let i=0;i<arr.length;i++){
+            if(hashmap.has(arr[i])){ // 判断hashmap中是否存在该值
+                hashmap.set(arr[i],true)
+            }else{ //没有key值 添加
+                hashmap.set[arr[i],false]
+                res.push(arr[i])
+            }
+            //简化
+            hashmap.set(arr[i],hashmap.has(arr[i]))
+        }
+        return res;
+    }
+    //2.找到数组中重复的数，上面的hashmap记录了每个元素的重复情况，遍历即可，值为true的key就是重复的数
+    for(let [key,value] of hashmap.entries()){
+        if(value === true) res.push(key)
+    }
+    //3. 第一个非重复的数，上面的hashmap记录了每个元素的重复情况，遍历即可
+    for(let [key,value] of hashmap.entries()){
+        if(value === false) return key
+    }
+    ```
+- 两个纯数字的数组a,b 去重后排序
+    ```javascript
+    function sort1(a,b){
+        let hashset = new Set();
+        for(let value of a){
+            hashset.add(value)
+        }
+        for(let value of b){
+            hashset.add(value)
+        }
+        return [].concat(...hashset).sort((a,b)=>a-b) //升序
+    }
+    function sort2(a,b){
+        let res = [...a,...b]
+        return [...new Set(res)].sort((a,b)=>a-b)
+    }
+    //sort 不传递参数会怎么样
+    //compareFunction用来指定按某种顺序进行排列的函数。如果省略，元素按照转换为的字符串的各个字符的Unicode位点进行排序
+    ```
+- sort 方法
+    ```javascript
+    Array.prototype.mySort = function() {
+        for (var i=0; i<this.length; i++) {
+            for(var j=0;j<this.length-i; j++) {
+                if(this[j] >this[j+1] ){  /*改成<就是降序*/
+                    var transferDate=this[j];
+                    this[j]=this[j+1];
+                    this[j+1]=transferDate;
+                }
+            }
+        }
+        return this;
+    }
     ```
 - map ⽅法
     ```javascript
@@ -710,3 +1054,61 @@
         }
     }
     ```
+- 设计模式
+  ```javascript
+  //单例模式
+  //限制类实例化次数只能一次，一个类只有一个实例，其运用场景是全局仅需要一个对象的场景
+  //实现方式：使用一个变量存储实例对象，进行类实例化时判断类实例对象是否存在，存在返回该实例，不存在则创建实例后返回，多次调用类生成实例的方法，返回同一个实例对象。
+  // 不透明的单例模式：
+  let single = function(name){
+    this.name = name;
+    this.instance = null;
+  }
+  single.prototype.getName = function(){
+      console.log(this.name)
+  }
+  single.getInstance = function(name){
+      if(this.instance) return this.instance
+      return this.instance = new single(name)
+  }
+  //测试
+  let winner = single.getInstance('winner')
+  let looser = single.getInstance('looser')
+  console.log(winner === looser);    //true
+  console.log(winner.getName);       //winner
+  console.log(looser.getName);       //looser
+  //采用闭包的单例模式
+  let single = function(name){
+    this.name = name;
+  }
+  single.prototype.getName = function(){
+      console.log(this.name)
+  }
+  single.getInstance = (function(name){
+      let instance = null;
+      return function(name){
+          return instance || (instance = new single(name))
+      }
+      if(this.instance) return this.instance
+      return this.instance = new single(name)
+  })()
+  //分析说明：存在的问题：1.不透明，无法使用new来进行类实例化 2.管理单例的操作，与对象的操作功能代码耦合
+  //透明的单例模式
+  let Single = (function(){
+      let instence = null;
+      return function(name){
+          if(instance) return instance
+          this.name = name;
+          return instance = this;
+      }
+  })()
+  Single.prototype.getName = function(){
+      console.log(this.name)
+  }
+    //测试
+  let winner = new Single('winner')
+  let looser = new Single('looser')
+  console.log(winner === looser);    //true
+  console.log(winner.getName);       //winner
+  console.log(looser.getName);       //looser
+  ```
