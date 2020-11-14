@@ -724,14 +724,54 @@
     >8. destroyed：组件销毁后调用，这个时候只剩下了dom空壳。组件已被拆解，数据绑定被卸除，监听被移出，子实例也统统被销毁。
     >
     >- 第一次加载会触发1-4的生命周期
+    >
     >- DOM 渲染在 mounted 中就已经完成了,既可以在mounted中访问dom元素
+    >
     >- 组件生命周期调用顺序
+    >
     >  - 组件的调用顺序都是先父后子，渲染完成的顺序是先子后父
+    >
     >  - 组件的销毁操作是先父后子，销毁完成顺序是先子后父
+    >
     >  - 加载渲染的过程：父beforeCreate---父created----父beforeMount---子beforeCreate---子created---子beforeMount---子mounted---父mounted
+    >
     >  - 子组件更新过程； 父beforeUpdate---子beforeUpdate---子updated---父updated
+    >
     >  - 父组件更新过程：父beforeUpdate---父updated
+    >
     >  - 销毁过程： 父beforeDestroy->子beforeDestroy->子destroyed->父destroyed
+    >
+    >  - 父组件监听子组件的生命周期
+    >
+    >    ```javascript
+    >    // Parent.vue
+    >    <Child @mounted="doSomething"/> 
+    >    // Child.vue
+    >    mounted() {
+    >      this.$emit("mounted");
+    >    }
+    >    //需要手动通过 $emit 触发父组件的事件，更简单的方式可以在父组件引用子组件时通过 @hook 来监听即可
+    >    //  Parent.vue
+    >    <Child @hook:mounted="doSomething" ></Child>
+    >    doSomething() {
+    >       console.log('父组件监听到 mounted 钩子函数 ...');
+    >    },    
+    >    //Child.vue
+    >    mounted(){
+    >       console.log('子组件触发 mounted 钩子函数 ...');
+    >    },       
+    >    // 以上输出顺序为：
+    >    // 子组件触发 mounted 钩子函数 ...
+    >    // 父组件监听到 mounted 钩子函数 ... 
+    >      //@hook不仅仅可以监听到mounted,其它的生命周期事件，例如：created，updated 等都可以监听。
+    >    ```
+    >
+    >  - 异步请求一般在哪个生命周期
+    >
+    >    可以在钩子函数 created、beforeMount、mounted 中进行调用，因为在这三个钩子函数中，data 已经创建，可以将服务端端返回的数据进行赋值。但是本人推荐在 created 钩子函数中调用异步请求，因为在 created 钩子函数中调用异步请求有以下优点：
+    >
+    >    - 能更快获取到服务端数据，减少页面 loading 时间；
+    >    - ssr 不支持 beforeMount 、mounted 钩子函数，所以放在 created 中有助于一致性
 
   - 对keep-alive的理解？
 
@@ -758,21 +798,471 @@
 
   - 路由
 
+    >- hash模式
+    >
+    >  在浏览器中符号“#”，#以及#后面的字符称之为hash，用window.location.hash读取； 特点：hash虽然在URL中，但不被包括在HTTP请求中；用来指导浏览器动作，对服务端安全无用，hash不会重加载页面。 hash 模式下，仅 hash 符号之前的内容会被包含在请求中，如 `http://www.xiaogangzai.com`，因此对于后端来说，即使没有做到对路由的全覆盖，也不会返回 404 错误
+    >
+    >  - URL 中 hash 值只是客户端的一种状态，也就是说当向服务器端发出请求时，hash 部分不会被发送；
+    >  - hash 值的改变，都会在浏览器的访问历史中增加一个记录。因此我们能通过浏览器的回退、前进按钮控制hash 的切换；
+    >  - 可以通过 a 标签，并设置 href 属性，当用户点击这个标签后，URL 的 hash 值会发生改变；或者使用  JavaScript 来对 loaction.hash 进行赋值，改变 URL 的 hash 值；
+    >  - 我们可以使用 hashchange 事件来监听 hash 值的变化，从而对页面进行跳转（渲染）。
+    >
+    >- history模式
+    >
+    >  history采用HTML5的新特性；且提供了两个新方法：pushState（），replaceState（）可以对浏览器历史记录栈进行修改，以及popState事件的监听到状态变更。 history 模式下，前端的 URL 必须和实际向后端发起请求的 URL 一致，如 `http://www.xxx.com/items/id`。后端如果缺少对 /items/id 的路由处理，将返回 404 错误。Vue-Router 官网里如此描述：“不过这种模式要玩好，还需要后台配置支持……所以呢，你要在服务端增加一个覆盖所有情况的候选资源：如果 URL 匹配不到任何静态资源，则应该返回同一个 index.html 页面，这个页面就是你 app 依赖的页面
+    >
+    >  - pushState 和 repalceState 两个 API 来操作实现 URL 的变化 ；
+    >  - 我们可以使用 popstate  事件来监听 url 的变化，从而对页面进行跳转（渲染）；
+    >  - history.pushState() 或 history.replaceState() 不会触发 popstate 事件，这时我们需要手动触发页面跳转（渲染
+
   - 组件通信机制
+
+    >Vue 组件间通信只要指以下 3 类通信：父子组件通信、隔代组件通信、兄弟组件通信
+    >
+    >- props / $emit 适用 父子组件通信
+    >
+    >- Ref  / $parent / children适用于父子组件通信
+    >
+    >  - ref如果在普通dom元素上引用指向dom元素，如果用在子组件上，则指向子组件
+    >  - / $parent / children访问父子实例
+    >
+    >- Events（$emit/$on）使用于父子、隔代、兄弟组件通信
+    >
+    >  这种方法通过一个空的 Vue 实例作为中央事件总线（事件中心），用它来触发事件和监听事件，从而实现任何组件间的通信，包括父子、隔代、兄弟组件
+    >
+    >- $attrs  $/Listeners 适用于隔代组件通信
+    >
+    >  - attrs: 包含了父作用域中不被 prop 所识别 (且获取) 的特性绑定 ( class 和 style 除外 )。当一个组件没有声明任何 prop 时，这里会包含所有父作用域的绑定 ( class 和 style 除外 )，并且可以通过 `v-bind="$attrs"`传入内部组件。通常配合 inheritAttrs 选项一起使用
+    >  - Listeners: 包含了父作用域中的 (不含 .native 修饰器的)  v-on 事件监听器。它可以通过 `v-on="$listeners"`传入内部组件
+    >
+    >- Provide / inject 适用于隔代组件通信
+    >
+    >  祖先组件中通过 provider 来提供变量，然后在子孙组件中通过 inject 来注入变量。 provide / inject API 主要解决了跨级组件间的通信问题，不过它的使用场景，主要是子组件获取上级组件的状态，跨级组件间建立了一种主动提供与依赖注入的关系
+    >
+    >- Vuex 适用于父子、隔代、兄弟组件通信
+    >
+    >  Vuex 是一个专为 Vue.js 应用程序开发的状态管理模式。每一个 Vuex 应用的核心就是 store（仓库）。“store” 基本上就是一个容器，它包含着你的应用中大部分的状态 ( state )。
+    >
+    >  
 
   - 双向绑定
 
+    >Vue 数据双向绑定主要是指：数据变化更新视图，视图变化更新数据
+    >
+    >Vue主要通过一下四步来实现：
+    >
+    >1. 实现一个监听器 Observer：对数据对象进行遍历，包括子属性对象的属性，利用 Object.defineProperty() 对属性都加上 setter 和 getter。这样的话，给这个对象的某个值赋值，就会触发 setter，那么就能监听到了数据变化。
+    >
+    >2. 实现一个解析器 Compile：解析 Vue 模板指令，将模板中的变量都替换成数据，然后初始化渲染页面视图，并将每个指令对应的节点绑定更新函数，添加监听数据的订阅者，一旦数据有变动，收到通知，调用更新函数进行数据更新。
+    >
+    >3. 实现一个订阅者 Watcher：Watcher 订阅者是 Observer 和 Compile 之间通信的桥梁 ，主要的任务是订阅 Observer 中的属性值变化的消息，当收到属性值变化的消息时，触发解析器 Compile 中对应的更新函数。
+    >
+    >4. 实现一个订阅器 Dep：订阅器采用 发布-订阅 设计模式，用来收集订阅者 Watcher，对监听器 Observer 和 订阅者 Watcher 进行统一管理
+    >
+    >vue实现数据双向绑定主要是：采**用数据劫持结合发布者-订阅者模式**的方式，通过**Object.defineProperty（）**来劫持各个属性的setter，getter，在数据变动时发布消息给订阅者，触发相应监听回调。当把一个普通 Javascript 对象传给 Vue 实例来作为它的 data 选项时，Vue 将遍历它的属性，用 Object.defineProperty 将它们转为 getter/setter。用户看不到 getter/setter，但是在内部它们让 Vue 追踪依赖，在属性被访问和修改时通知变化。
+    >
+    >vue的数据双向绑定 将MVVM作为数据绑定的入口，整合Observer，Compile和Watcher三者，通过Observer来监听自己的model的数据变化，通过Compile来解析编译模板指令（vue中是用来解析 {{}}），最终利用watcher搭起observer和Compile之间的通信桥梁，达到数据变化 —>视图更新；视图交互变化（input）—>数据model变更双向绑定效果
+
+  - Vue对对象和数组的限制
+
+    >```javascript
+    >/**
+    >   * Observe a list of Array items.
+    >   */
+    >  observeArray (items: Array<any>) {
+    >    for (let i = 0, l = items.length; i < l; i++) {
+    >      observe(items[i])  // observe 功能为监测数据的变化
+    >    }
+    >  }
+    >  /**
+    >   * 对属性进行递归遍历
+    >   */
+    >  let childOb = !shallow && observe(val) // observe 功能为监测数据的变化
+    >```
+    >
+    >使用了函数劫持的方式，重写了数组的方法，Vue将data中的数组进行了原型链重写，指向了自己定义的数组原型方法。这样当调用数组api时，可以通知依赖更新。如果数组中包含着引用类型，会对数组中的引用类型再次递归遍历进行监控。这样就实现了监测数组变化
+    >
+    >
+    >
+    >通过以上 Vue 源码部分查看，我们就能知道 Vue 框架是通过遍历数组 和递归遍历对象，从而达到利用  Object.defineProperty() 也能对对象和数组（部分方法的操作）进行监听
+    >
+    >- 对数组的某些操作不能监听到变化
+    >
+    >  - 直接给一个数组项赋值：`vm.items[indexOfItem] = newvalue;`
+    >  - 解决办法：`Vue.set(vm.items,indexOfItem,newvalue),vm.$set(vm.items, indexOfItem, newValue),vm.items.splice(indexOfItem, 1, newValue)`
+    >  - 修改数组的长度:`vm.items.length = newlength`
+    >  - 解决办法：`vm.items.splice(newLength)`
+    >
+    >- Vue无法检测到对对象属性的新增和删除
+    >
+    >  由于 Vue 会在初始化实例时对属性执行 getter/setter 转化，所以属性必须在 data 对象上存在才能让 Vue 将它转换为响应式的。但是 Vue 提供了 `Vue.set (object, propertyName, value) / vm.$set (object, propertyName, value)` 来实现为对象添加响应式属性，那框架本身是如何实现的呢？
+    >
+    >  ```javascript
+    >  export function set (target: Array<any> | Object, key: any, val: any): any {
+    >    // target 为数组  
+    >    if (Array.isArray(target) && isValidArrayIndex(key)) {
+    >      // 修改数组的长度, 避免索引>数组长度导致splcie()执行有误
+    >      target.length = Math.max(target.length, key)
+    >      // 利用数组的splice变异方法触发响应式  
+    >      target.splice(key, 1, val)
+    >      return val
+    >    }
+    >    // key 已经存在，直接修改属性值  
+    >    if (key in target && !(key in Object.prototype)) {
+    >      target[key] = val
+    >      return val
+    >    }
+    >    const ob = (target: any).__ob__
+    >    // target 本身就不是响应式数据, 直接赋值
+    >    if (!ob) {
+    >      target[key] = val
+    >      return val
+    >    }
+    >    // 对属性进行响应式处理
+    >    defineReactive(ob.value, key, val)
+    >    ob.dep.notify()
+    >    return val
+    >  }
+    >  ```
+    >
+    >  如果目标是数组，直接使用数组的 splice 方法触发相应式；
+    >
+    >  如果目标是对象，会先判读属性是否存在、对象是否是响应式，最终如果要对属性进行响应式处理，则是通过调用   defineReactive 方法进行响应式处理（ defineReactive 方法就是  Vue 在初始化对象时，给对象属性采用 Object.defineProperty 动态添加 getter 和 setter 的功能所调用的方法）
+
+  - proxy相比于 Object.defineProperty() 的优势
+
+    >Object.defineProperty() 的问题主要有三个:
+    >
+    >- 不能监听数组的变化
+    >- 必须遍历对象的每个属性
+    >- 必须深层遍历嵌套的对象
+    >
+    >Proxy 在 ES2015 规范中被正式加入，它有以下几个特点：
+    >
+    >- 针对对象：针对整个对象，而不是对象的某个属性，所以也就不需要对 keys 进行遍历。这解决了上述 Object.defineProperty() 第二个问题
+    >- 支持数组：Proxy 不需要对数组的方法进行重载，省去了众多 hack，减少代码量等于减少了维护成本，而且标准的就是最好的
+    >- Proxy 的第二个参数可以有 13 种拦截方法，这比起 Object.defineProperty() 要更加丰富
+    >- Proxy 返回的是一个新对象,我们可以只操作新的对象达到目的,而 Object.defineProperty 只能遍历对象属性直接修改
+
+  - computed和watch的区别？
+
+    >**Computed**: 是计算属性，依赖其它属性值，并且 computed 的值有缓存，只有它依赖的属性值发生改变，下一次获取 computed 的值时才会重新计算 computed  的值
+    >
+    >- 是计算属性,也就是计算值,它更多用于计算值的场景
+    >- 具有缓存性,computed的值在getter执行后是会缓存的，只有在它依赖的属性值改变之后，下一次获取computed的值时才会重新调用对应的getter来计算
+    >- 适用于计算比较消耗性能的计算场景
+    >
+    >**watch：**更多的是「观察」的作用，类似于某些数据的监听回调 ，每当监听的数据变化时都会执行回调进行后续操作
+    >
+    >- 无缓存性，页面重新渲染时值不变化也会执行
+
   - 事件绑定
+
+    >原生事件绑定是通过`addEventListener`绑定给真实元素的，组件事件绑定是通过Vue自定义的`$on`实现的
 
   - 响应式
 
+    >- Vue2.x的响应式
+    >
+    >  Vue在初始化数据时，会使用`Object.defineProperty`重新定义data中的所有属性，当页面使用对应属性时，首先会进行依赖收集(收集当前组件的`watcher`)如果属性发生变化会通知相关依赖进行更新操作(`发布订阅`)
+    >
+    >- Vue3的响应式
+    >
+    >  Vue3.x改用`Proxy`替代Object.defineProperty。因为Proxy可以直接监听对象和数组的变化，并且有多达13种拦截方法。并且作为新标准将受到浏览器厂商重点持续的性能优化
+    >
+    >- Proxy只会代理对象的第一层，那么Vue3又是怎样处理这个问题的呢？
+    >
+    >  判断当前Reflect.get的返回值是否为Object，如果是则再通过`reactive`方法做代理， 这样就实现了深度观测
+    >
+    >- 监测数组的时候可能触发多次get/set，那么如何防止触发多次呢？
+    >
+    >  我们可以判断key是否为当前被代理对象target自身属性，也可以判断旧值与新值是否相等，只有满足以上两个条件之一时，才有可能执行trigger
+
+  - nextTick的理解
+
+    >在下次`dom`更新循环结束之后执行延迟回调，可用于获取更新后的`dom`状态
+    >
+    >- 新版本中默认是microtasks`, `v-on`中会使用`macrotasks
+    >- macrotasks的实现：setImmediate / MessageChannel / setTimeout
+    >
+    >在下次 DOM 更新循环结束之后执行延迟回调。nextTick主要使用了宏任务和微任务。根据执行环境分别尝试采用p romise\MutationObserver\setImmediate\setTimeout
+    >
+    >定义了一个异步方法，多次调用nextTick会将方法存入队列中，通过这个异步方法清空当前队列
+
   - Vuex
+
+    >- 定义： Vuex 是一个专为 Vue.js 应用程序开发的状态管理模式。它采用集中式存储管理应用的所有组件的状态，并以相应的规则保证状态以一种可预测的方式发生变化
+    >- 思想： 把组件的共享状态抽取出来，以一个全局单例模式管理，在这种模式下，我们的组件树构成了一个巨大的“视图”，不管在树的哪个位置，任何组件都能获取状态或者触发行为
+    >- vuex和单纯的全局对象的不同？
+    >  - Vuex 的状态存储是响应式的。
+    >  - 你不能直接改变 store 中的状态。该变 store 中的状态的唯一途径就是显式地提交 (commit) mutation。是因为我们想要更明确地追踪到状态的变化
+    >- vuex的组成
+    >  - state
+    >    - Vuex 使用 state来存储应用中需要共享的状态。为了能让 Vue 组件在 state更改后也随着更改，需要基于state创建计算属性
+    >  - getters
+    >    - 可以认为是 store 的计算属性，getter 的返回值会根据它的依赖被缓存起来，且只有当它的依赖值发生了改变才会被重新计算
+    >  - Mutations（同步）
+    >    - 改变状态的执行者，mutations用于同步的更改状态
+    >  - actions (异步)
+    >    - 异步的改变状态，actions不直接更改state，而是发起mutations,view 层通过 store.dispath 来分发 action。
+    >  - Module: 模块化store
+    >    - 出现的问题：由于使用单一状态树，应用的所有状态会集中到一个比较大的对象。当应用变得非常复杂时，store 对象就有可能变得相当臃肿
+    >    - Vuex 允许我们将 store 分割成模块（module）。每个模块拥有自己的 state、mutation、action、getter、甚至是嵌套子模块
+    >- vuex的工作原理
+    >  - 数据从state中渲染到页面
+    >  - 在页面通过dispatch来触发action
+    >  - action通过调用commit,来触发mutation
+    >  - mutation来更改数据，数据变更之后会触发dep对象的notify，通知所有Watcher对象去修改对应视图（vue的双向数据绑定原理）
+    >- 运用场景
+    >  - 多个视图依赖于同一状态
+    >  - 来自不同视图的行为需要改变同一个状态
 
   - Vue SSR
 
+    >SSR大致的意思就是vue在客户端将标签渲染成的整个 html 片段的工作在服务端完成，服务端形成的html 片段直接返回给客户端这个过程就叫做服务端渲染
+    >
+    >- 服务端渲染的优点
+    >  - 更好的 SEO： 因为 SPA 页面的内容是通过 Ajax 获取，而搜索引擎爬取工具并不会等待 Ajax 异步完成后再抓取页面内容，所以在 SPA 中是抓取不到页面通过 Ajax 获取到的内容；而 SSR 是直接由服务端返回已经渲染好的页面（数据已经包含在页面中），所以搜索引擎爬取工具可以抓取渲染好的页面；
+    >  - 更快的内容到达时间（首屏加载更快）： SPA 会等待所有 Vue 编译后的 js 文件都下载完成后，才开始进行页面的渲染，文件下载等需要一定的时间等，所以首屏渲染需要一定的时间；SSR 直接由服务端渲染好页面直接返回显示，无需等待下载 js 文件及再去渲染等，所以 SSR 有更快的内容到达时间
+    >- 服务端渲染的缺点
+    >  - 多的开发条件限制： 例如服务端渲染只支持 beforCreate 和 created 两个钩子函数，这会导致一些外部扩展库需要特殊处理，才能在服务端渲染应用程序中运行；并且与可以部署在任何静态文件服务器上的完全静态单页面应用程序 SPA 不同，服务端渲染应用程序，需要处于 Node.js server 运行环境；
+    >  - 更多的服务器负载：在 Node.js  中渲染完整的应用程序，显然会比仅仅提供静态文件的  server 更加大量占用CPU 资源 (CPU-intensive - CPU 密集)，因此如果你预料在高流量环境 ( high traffic ) 下使用，请准备相应的服务器负载，并明智地采用缓存策略
+
   - 性能优化
 
-  - 其他
+    >- 编码阶段
+    >
+    >  - 尽量减少data中的数据，data中的数据都会增加getter和setter，会收集对应的watcher
+    >
+    >  - v-if v-for不能连用
+    >  - 如果需要给v-for的每一项元素绑定事件采用事件代理
+    >  - computed 和 watch  区分使用场景
+    >  - SPA页面采用keep-alive缓存组件
+    >  - 在更多情况下，v-if代替v-show
+    >  - key值保证唯一
+    >  - 使用路由懒加载、异步组件
+    >  - 防抖、节流
+    >  - 第三方模块按需导入
+    >  - 图片懒加载
+    >
+    >- SEO优化
+    >
+    >  - 预渲染
+    >  - 服务端渲染
+    >
+    >- 打包优化
+    >
+    >  - 压缩代码
+    >  - Webpack 对图片进行压缩
+    >  - Tree Shaking/Scope Hoisting
+    >  - 使用cdn加载第三方模块
+    >  - 多线程打包happypack
+    >  - splitChunks抽离公共文件
+    >  - 模版预渲染
+    >  - 构建结果输出分析
+    >  - sourceMap优化
+    >
+    >- 用户体验
+    >
+    >  - 骨架屏
+    >  - PWA
+    >
+    >还可以使用缓存(客户端缓存、服务端缓存)优化、服务端开启gzip压缩等。
+
+  - 对Vue3的了解
+
+    >- Vue3中的响应式
+    >
+    >  Vue3对整个响应式系统做了重新的设计，同时暴露了几个新的API:`ref\reactive\computed\effect`,把原本Vue2 `object.defineProperty` 的实现改成了用`proxy`的实现方式：
+    >
+    >  - reactive
+    >
+    >  ```javascript
+    >  const reactive = (target)=> new Proxy(target,{
+    >  	get(target,prop,receiver){
+    >      track(target,prop)
+    >      return Reflect.get(...arguments)
+    >    },
+    >    set(target,key,value,receiver){
+    >      trigger(target,key)
+    >      return Reflect.set(...arguments)
+    >    }
+    >  })
+    >  const obj = reactive({
+    >    hello:'word'
+    >  })
+    >  console.log(obj.hello) // `track()` get called
+    >  obj.hello = 'vue' // `trigger()` get called
+    >  ```
+    >
+    >  我们可以通过 `get`和 `set`这两个 handler 去追踪每一个属性的访问和修改，在这个例子中我们在 `get`里注入了 `track`这个函数，在 `set`里注入了`trigger`这个函数。那么在对 `reactive`这个对象的 `hello`属性进行访问的时候 `track`就会被执行，在对 `obj.hello`进行赋值的时候，`trigger`就会被执行。通过 `track`和 `trigger`我们就可以进行一些响应式的追踪
+    >
+    >  - effect
+    >
+    >  `effect`是在 Vue 3 里面新引入的一个API，它的作用就是去结合 `track`和 `trigger`这两个能，`track`的作用是追踪调用他的函数，`trigger`是去触发绑定的依赖更新
+    >
+    >  ```javascript
+    >  const targetMap = new WeakMap()
+    >  
+    >  export const track = (target, key) => {
+    >    if (tacking && activeEffect)
+    >      targetMap.get(target).key(key).push(activeEffect)
+    >  }
+    >  
+    >  export const trigger = (target, key) => {
+    >    targetMap.get(target).key(key).forEach(effect => effect())
+    >  }
+    >  
+    >  export const effect = (fn) => {
+    >    let effect = function() { fn() }
+    >    enableTracking()
+    >    activeEffect = effect
+    >    fn()
+    >    resetTracking()
+    >    activeEffect = undefined
+    >  }
+    >  ```
+    >
+    >  在 `effect`里面我们会接受一个函数作为参数，在执行这个函数之前的我们会开启 tracking，然后把当前的函数设置在一个全局变量 `activeEffect`，然后再去执行这个函数。那么在这个函数的调用时间里面我们有任何的 reactive 的调用就会触发 `track`这个函数。`track`的主要功能就是说我们把当前的 `activeEffect`绑定到所触发它的这个属性调用上。然后在数据更新的时候，我们再去找到这个依赖上面所绑定的所有 `effect`把他们一一调用。这样就完成了一个最基本的响应式的功能
+    >
+    >  - Computed & watch
+    >
+    >  在 Vue 3.0 里面，`computed`和 `watch`都是基于 `effect`的包装，我们这边可以看到一个简单的 `computed`的实现
+    >
+    >  ```javascript
+    >  const computed = (getter) => {
+    >    let value
+    >    let dirty = true
+    >    
+    >    const runner = effect(getter, {
+    >      lazy: true,
+    >      scheduler() {
+    >        dirty = true // deps changed
+    >      }
+    >    })
+    >    return {
+    >      get value() {
+    >        if (dirty) {
+    >          value = runner() // re-evaluate
+    >          dirty = false
+    >        }
+    >        return value
+    >      }
+    >    }
+    >  ```
+    >
+    >  `computed`接受一个 getter 函数，这个函数我们把它直接传给 `effect`，`effect`会在先执行一次进行依赖收集，在收集完了之后，如果里面其中的依赖发生了变动，他就会触发这个 `scheduler`将 `dirty`设置为 `true`。在最后我们在对 `computed`进行求值的时候，如果 `dirty`为 `true`，我们就会重新进行一次运算得到新的 `value`后再把 `value`传出去。在第二次调用时，如果里面的依赖没有更新，我们就可以直接用上一次计算的结果，这件可以避免掉多余重复的计算。
+    >
+    >- 组合式composition API
+    >
+    >  组合式其实是基于响应式延伸出来的一套和 Vue 生命周期绑定的一套工具。它提供了 Vue 生命周期的钩子像是 `onMounted``onUpdate`和 `onUnmounted`等等。还有个非常重要的功能就是说在 Vue 的 `setup()`里面，所建立的类似 `computed`或者 `watch`的 `effect`会在组件销毁的时候自动跟随这个组件一并销毁。那么组合是最重要的作用就是它可以提供可复用的逻辑，我们可以把很多的逻辑拆分出来，做成一个一个的工具。然后可以跨组件的进行复用或甚至是把它做成一个第三方库，跨应用地进行复用。这个我们会在之后进行详细的介绍:
+    >
+    >  例子：给网页实现dark mode。我希望整个页面在默认的情况下会随着我系统的系统的偏好改变。然后我可能希望一个用户有一个手动可以修改的功能，比如说我有一个按钮一个直接改变 Dark Mode。
+    >
+    >  然后又希望这个这个功能是一个可持久化的，我可以保存下用户的偏好，在网页刷新后还可以还可以继续存留用户的上一次的修改。最后可能会希望说在两个模式切换的时候去执行一些代码，比如说通知用户或者是通知组件进行一些操作之类的
+    >
+    >  ```html
+    >  <template>
+    >    <div :class='{dark}'>
+    >      <button @click='toggleDark'>Toggle</button>
+    >    </div>
+    >  </template>
+    >  ```
+    >
+    >  Vue2.x的写法：
+    >
+    >  ```javascript
+    >  <script>
+    >   export default{
+    >  	data(){
+    >      return{
+    >        dark:false,
+    >        media:window.matchMedia('(prefers-color-scheme: dark)')
+    >      }
+    >    },
+    >    methods:{
+    >      toggleDark(){
+    >        this.dark = !this.dark;
+    >      },
+    >      updateDark(){
+    >        this.dark = this.media.matches;
+    >      }
+    >    },
+    >    created(){
+    >      this.media.addEventListener('change', this.updateDark)
+    >      this.updateDark()
+    >    },
+    >    destoryed(){
+    >      this.media.removeEventListener('change', this.updateDark)
+    >    }
+    >  }
+    >  </script>
+    >  ```
+    >
+    >  Vue3.x的写法：composition API
+    >
+    >  因为在 Composition API 中，`setup()`相当于 Options API 的 `created`，我们直接可以把 `addEventListener`的直接写在 `setup()`里面，对应的我们再通过一个生命周期的钩子 `OnUnmounted`注销事件监听
+    >
+    >  ```
+    >  import {onUnmounted,ref} from 'Vue'
+    >  export default{
+    >    setup(){
+    >        const media = window.matchMedia('(prefers-color-scheme: dark)');
+    >        const dark = ref(media.matches);
+    >        const updateDark = ()=> dark.value = media.matches;
+    >        
+    >        media.addEventListener('change', updateDark);
+    >        onUnmounted(() => {
+    >       		media.removeEventListener('change', update)
+    >      	})
+    >      	return{
+    >      		dark,
+    >      		toggleDark(){
+    >      			dark.value = !dark.value;
+    >      		}
+    >      	}
+    >    }
+    >  }
+    >  ```
+    >
+    >  
+    >
+    >- 监测机制的改变
+    >
+    >  3.0 将带来基于代理 Proxy 的 observer 实现，提供全语言覆盖的反应性跟踪。这消除了 Vue 2 当中基于 Object.defineProperty 的实现所存在的很多限制：
+    >
+    >  - 只能监测属性，不能监测对象
+    >  - 检测属性的添加和删除；
+    >  - 检测数组索引和长度的变更；
+    >  - 支持 Map、Set、WeakMap 和 WeakSet
+    >
+    >  新的observer还提供了以下特性：
+    >
+    >  - 用于创建 observable 的公开 API。这为中小规模场景提供了简单轻量级的跨组件状态管理解决方案。
+    >  - 默认采用惰性观察。在 2.x 中，不管反应式数据有多大，都会在启动时被观察到。如果你的数据集很大，这可能会在应用启动时带来明显的开销。在 3.x 中，只观察用于渲染应用程序最初可见部分的数据。
+    >  - 更精确的变更通知。在 2.x 中，通过 Vue.set 强制添加新属性将导致依赖于该对象的 watcher 收到变更通知。在 3.x 中，只有依赖于特定属性的 watcher 才会收到通知。
+    >  - 不可变的 observable：我们可以创建值的“不可变”版本（即使是嵌套属性），除非系统在内部暂时将其“解禁”。这个机制可用于冻结 prop 传递或 Vuex 状态树以外的变化。
+    >  - 更好的调试功能：我们可以使用新的 renderTracked 和 renderTriggered 钩子精确地跟踪组件在什么时候以及为什么重新渲染
+    >
+    >- 模板
+    >
+    >  模板方面没有大的变更，只改了作用域插槽，2.x 的机制导致作用域插槽变了，父组件会重新渲染，而 3.0 把作用域插槽改成了函数的方式，这样只会影响子组件的重新渲染，提升了渲染的性能。
+    >
+    >  同时，对于 render 函数的方面，vue3.0 也会进行一系列更改来方便习惯直接使用 api 来生成 vdom
+    >
+    >- 对象式组件声明方式
+    >
+    >  vue2.x 中的组件是通过声明的方式传入一系列 option，和 TypeScript 的结合需要通过一些装饰器的方式来做，虽然能实现功能，但是比较麻烦。3.0 修改了组件的声明方式，改成了类式的写法，这样使得和 TypeScript 的结合变得很容易。
+    >
+    >  此外，vue 的源码也改用了 TypeScript 来写。其实当代码的功能复杂之后，必须有一个静态类型系统来做一些辅助管理。现在 vue3.0 也全面改用 TypeScript 来重写了，更是使得对外暴露的 api 更容易结合 TypeScript。静态类型系统对于复杂代码的维护确实很有必要
+    >
+    >- 其他方面
+    >
+    >  vue3.0 的改变是全面的，上面只涉及到主要的 3 个方面，还有一些其他的更改：
+    >
+    >  - 支持自定义渲染器，从而使得 weex 可以通过自定义渲染器的方式来扩展，而不是直接 fork 源码来改的方式。
+    >  - 支持 Fragment（多个根节点）和 Protal（在 dom 其他部分渲染组建内容）组件，针对一些特殊的场景做了处理。
+    >  - 基于 treeshaking 优化，提供了更多的内置功能
 
     
 
