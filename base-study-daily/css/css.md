@@ -81,7 +81,7 @@
     1. 给父级设置边框或内边距,这种方法虽然能够解决问题，但是在日常开发中我们不使用它，因为他在外观上对元素进行了改变。
 
     2. 触发BFC：
-       
+      
        - 根元素`html`；
        
        - float的属性不为none;
@@ -124,6 +124,9 @@
     
     //缺点：ie6-7不支持伪元素：after，使用zoom:1触发hasLayout.
     设置元素浮动后，display 为block
+    ```
+  ```
+  
   ```
   
 - 清除浮动的原理
@@ -307,7 +310,7 @@
     >- 父元素不能`overflow:hidden`或者`overflow:auto`等属性
 
 
-    
+​    
 
 ##### display
 
@@ -631,9 +634,9 @@
     position:absolute;
     top:50%;
     left:50%;
-  transform: translate(-50%, -50%); 
+    transform: translate(-50%, -50%); 
 }
-  ```
+```
 
 - inline-block
 

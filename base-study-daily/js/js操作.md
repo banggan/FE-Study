@@ -215,28 +215,41 @@
     }
     //延迟节流：利用定时器，当事件触发的时候，设置延迟的定时器，每次触发事件的时候，如果存在定时器，则回调不执行方法，知道定时器触发，handler被清除，重新设置定时器
     const throttle = (fn,delay)=>{
-        let timer = null;
+        let canRun = true;
         return (...args)=>{
-            let context = this;
-            if(!timer){
-                timer = setTimeout(()=>{
-                    fn.apply(context,args);
-                    timer = null;
-                },delay)
-            }
+          if(!canRun) return 
+          canRun = false;
+          setTimeout(()=>{
+             fn.apply(this,args);
+             canRun = true;
+          },delay)
         }
     }
-
-    ```
+    
+```
 - ⽤setTimeout实现setInterval
     ```javascript
-    function myInterval(fn, delay) { 
+    function myInterval(fn, delay,isPause) { 
         const interval = () => {
             setTimeout(interval ,delay)
             fn() 
         }
         setTimeout(interval, delay)
     }
+    //可控制的
+    var fun;
+    function countTimer(flag) {
+        if(flag){
+          fun = setTimeout(function () {
+             console.log("计数器=》" ,"ss")
+             countTimer(true)
+            },2000);
+        }else{
+            //结束函数
+            clearTimeout(fun)
+        }
+    }
+    countTimer(true)
     ```
 - 字符串全排列
     ```javascript
@@ -455,7 +468,7 @@
                     res[i] = data;
                     index ++;
                     if(index === len) resolve(res)
-                }).catch(error=>{
+                },error=>{
                     reject(error)
                 })
             }
@@ -489,7 +502,7 @@
                 if(xhr.status === 200 && xhr.readystate === 4){
                     resolve(xhr.reponseText)
                 }else{
-                    reject(chr.status)
+                    reject(xhr.status)
                 }
             }
         })
@@ -1112,3 +1125,4 @@
   console.log(winner.getName);       //winner
   console.log(looser.getName);       //looser
   ```
+
