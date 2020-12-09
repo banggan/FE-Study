@@ -285,10 +285,10 @@
   >//1；通过原型来实现继承时，原型会变成另一个类型的实例，原先的实例属性变成了现在的原型属性，该原型的引用类型属性会被所有的实例共享
   >//2: 在创建子类型的实例时，不能向超类型的构造函数中传递参数
   >function SuperType() {
-  >    this.name = 'Yvette';
+  >this.name = 'Yvette';
   >}
   >function SubType() {
-  >    this.age = 22;
+  >this.age = 22;
   >}
   >SubType.prototype = new SuperType();
   >SubType.prototype.constructor = SubType;
@@ -301,10 +301,10 @@
   >//1；方法都在构造函数中定义，函数复用无从谈起
   >//2. 另外超类型原型中定义的方法对于子类型而言都是不可见的
   >function SuperType(name) {
-  >    this.name = name
+  >this.name = name
   >}
   >function SubType(name) {
-  >  SuperType.call(this,name)
+  >SuperType.call(this,name)
   >}
   >
   >//3.组合继承
@@ -317,11 +317,11 @@
   >//--------缺点
   >//无论什么情况下，都会调用两次超类型构造函数：一次是在创建子类型原型的时候，另一次是在子类型构造函数内部。
   >function SuperType() {
-  >    this.name = 'zc'
-  >    this.colors = ['pink', 'blue', 'green'];
+  >this.name = 'zc'
+  >this.colors = ['pink', 'blue', 'green'];
   >}
   >function SubType() {
-  >    SuperType.call(this)   // 第一次调用SuperType
+  >SuperType.call(this)   // 第一次调用SuperType
   >}
   >SubType.prototype = new SuperType   //第一次调用SuperType
   >SubType.prototype.constructor = SubType  
@@ -338,13 +338,13 @@
   >//--------缺点
   >//同原型链实现继承一样，包含引用类型值的属性会被所有实例共享
   >function object(o) {
-  >    function F() { }
-  >    F.prototype = o;
-  >    return new F();
+  >function F() { }
+  >F.prototype = o;
+  >return new F();
   >}
   >var person = {
-  >    name:   "Nicholas"  ,
-  >    friends: ["Shelby", "Court", "Van"]
+  >name:   "Nicholas"  ,
+  >friends: ["Shelby", "Court", "Van"]
   >};
   >var anotherPerson = object(person);
   >anotherPerson.name = "Greg";
@@ -365,16 +365,16 @@
   >//1.使用寄生式继承来为对象添加函数，会由于不能做到函数复用而效率低下。
   >//2.同原型链实现继承一样，包含引用类型值的属性会被所有实例共享。
   >function object(o) {
-  >    function F() { }
-  >    F.prototype = o;
-  >    return new F();
+  >function F() { }
+  >F.prototype = o;
+  >return new F();
   >}
   >function createAnother(original) {
-  >    var clone = object(original);  //通过调用函数创建一个新对象
-  >    clone.sayHi = function () {  //以某种方式增强这个对象
-  >        console.log('hi');
-  >    };
-  >    return clone;   //返回这个对象
+  >var clone = object(original);  //通过调用函数创建一个新对象
+  >clone.sayHi = function () {  //以某种方式增强这个对象
+  >   console.log('hi');
+  >};
+  >return clone;   //返回这个对象
   >}
   >
   >//6. 寄生组合式继承
@@ -382,45 +382,46 @@
   >//--------优点
   >//只调用了一次超类构造函数，效率更高。避免在SuberType.prototype上面创建不必要的、多余的属性，与其同时，原型链还能保持不变。因此寄生组合继承是引用类型最理性的继承范式
   >function inheritPrototype(subType, superType) {
-  >    var prototype = object(superType.prototype); //创建对象    创建了父类原型的浅复制
-  >    prototype.constructor = subType;//增强对象   修正原型的构造函数
-  >    subType.prototype = prototype;//指定对象     将子类的原型替换为这个原型
+  >var prototype = object(superType.prototype); //创建对象    创建了父类原型的浅复制
+  >prototype.constructor = subType;//增强对象   修正原型的构造函数
+  >subType.prototype = prototype;//指定对象     将子类的原型替换为这个原型
   >}
+  >
   >function SuperType(name) {
-  >    this.name = name;
-  >    this.colors = ['pink', 'blue', 'green'];
+  >this.name = name;
+  >this.colors = ['pink', 'blue', 'green'];
   >}
   >function SuberType(name, age) {
-  >    SuperType.call(this, name);
-  >    this.age = age;
+  >SuperType.call(this, name);
+  >this.age = age;
   >}
   >inheritPrototype(SuberType, SuperType);
   >
   >//7.ES6 继承
   >// ES6继承的结果和寄生组合继承相似，本质上，ES6继承是一种语法糖。但是，寄生组合继承是先创建子类实例this对象，然后再对其增强；而ES6先将父类实例对象的属性和方法，加到this上面（所以必须先调用super方法），然后再用子类的构造函数修改this。
   >class SuperType {
-  >    constructor(age) {
-  >        this.age = age;
-  >    }
-  >    getAge() {
-  >        console.log(this.age);
-  >    }
+  >constructor(age) {
+  >   this.age = age;
+  >}
+  >getAge() {
+  >   console.log(this.age);
+  >}
   >}
   >class SubType extends SuperType {
-  >    constructor(age, name) {
-  >        super(age); // 调用父类的constructor(x, y)
-  >        this.name = name;
-  >    }
-  >    getName() {
-  >        console.log(this.name);
-  >    }
+  >constructor(age, name) {
+  >   super(age); // 调用父类的constructor(x, y)
+  >   this.name = name;
+  >}
+  >getName() {
+  >   console.log(this.name);
+  >}
   >}
   >//实现原理
   >class A {}
   >class B {}
   >Object.setPrototypeOf = function (obj, proto) {
-  >  obj.__proto__ = proto;
-  >  return obj;
+  >obj.__proto__ = proto;
+  >return obj;
   >}      // B 的实例继承 A 的实例
   >
   >Object.setPrototypeOf(B.prototype, A.prototype);// B 继承 A 的静态属性
@@ -456,8 +457,9 @@
     - Object.assign()
 
       - ES6新函数，可以把任意多个的源对象自身的可枚举属性拷贝给目标对象，然后返回目标对象`Object.assign(target, ...sources)`
-
-      - 注意：当object只有一成的时候，是深拷贝
+    - 注意：当object只有一成的时候，是深拷贝
+      
+    - {...} [...]
 
     - Array.prototype.concat()
 
@@ -481,6 +483,7 @@
       const deepcopy = function(obj){
       	if(typeof obj !== 'object') return
       	const newObj = obj instanceof Array ? []:{};
+      	obj.getOwnPropertySymbols
       	for(let key in obj){
       		if(obj.hasOwnProperty(key)){
       			newObj[key] = typeof obj[key] == 'object' ? deepcopy(obj[key]):obj[key]
@@ -496,10 +499,10 @@
        obj.reduce((acc,cur)=>{
        	cur instanceof Array ? [...acc,deepcopy(cur)]:[...acc,cur]
        },[])
-      ```
-
-    - 函数库lodash: 该函数库也有提供_.cloneDeep用来做 Deep Copy
-
+    ```
+    
+  - 函数库lodash: 该函数库也有提供_.cloneDeep用来做 Deep Copy
+    
     - Jquery.extend()
 
 - 经典题目
@@ -949,7 +952,7 @@
 >    - 初始值
 >    - 重新赋值
 >  - 区别
->    - let/const 定义的变量不会出现变量提升，而 var 定义的变量会提升。
+>    - let/const 定义的变量不会出现变量提升（词法环境），而 var 定义的变量会提升（变量环境）。
 >    - 相同作用域中，let 和 const 不允许重复声明，var 允许重复声明。
 >    - const 声明变量时必须设置初始值
 >    - const 声明一个只读的常量，这个常量不可改变
@@ -1570,14 +1573,14 @@
 >      function waitHandle() {
 >       var dtd = $.Deferred() //创建一个 Deferred 对象
 >       var wait = function (dtd) { //要求传入一个 Deferred 对象
->       var task = function () {
+>       	var task = function () {
 >       		console.log('执行完成')
 >       		dtd.resolve() //表示异步任务已经完成
 >       		// dtd.reject() //表示异步任务失败或出错
->       }
->       setTimeout(task, 2000)
+>         }
+>       	setTimeout(task, 2000)
 >       		return dtd // 要求返回 Deferred 对象
->       }
+>      	 }
 >       		// 注意，这里一定要有返回值
 >       		return wait(dtd)
 >      }

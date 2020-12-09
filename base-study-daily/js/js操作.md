@@ -226,6 +226,7 @@
         }
     }
     
+    ```
 ```
 - ⽤setTimeout实现setInterval
     ```javascript
@@ -250,7 +251,7 @@
         }
     }
     countTimer(true)
-    ```
+```
 - 字符串全排列
     ```javascript
     var fullpermutate = function(str){
@@ -336,6 +337,12 @@
             if(_that.status !== 'pending') return    //如果当前状态不是pending直接结束
             _that.status = 'resolved' //改状态
             _that.data = value;    //保存数据
+            if(value instanceof promise){
+              return value.then(resolve,reject)
+    				}
+             // 为什么resolve 加setTimeout?
+            // 2.2.4规范 onFulfilled 和 onRejected 只允许在 execution context 栈仅包含平台代码时运行.
+            // 注1 这里的平台代码指的是引擎、环境以及 promise 的实施代码。实践中要确保 onFulfilled 和 onRejected 方法异步执行，且应该在 then 方法被调用的那一轮事件循环之后的新执行栈中执行。
             if(_that.callbacks.length >0){ // 如果有待执行callback 函数，立刻异步执行回调函数
                 setTimeout(()=>{
                     _that.callbacks.forEach(callbackobj =>{
@@ -364,13 +371,21 @@
         }
     }
     /*
-        Promise原型对象的 then() --- *思路  
+        Promise原型对象的 then() --- *思路  注册fulfilled状态/rejected状态对应的回调函数
           1、指定成功和失败的回调函数
           2、返回一个新的 promise 对象
           3、返回promise的结果由 onFulfilled/onRejected执行结果决定
           4、指定 onFulfilled/onRejected的默认值
+         注意的点： then里面的FULFILLED/REJECTED状态时 为什么要加setTimeout ?
+         原因:
+         其一 2.2.4规范 要确保 onFulfilled 和 onRejected 方法异步执行(且应该在 then 方法被调用的那一轮事件循环之后的新执行栈中执行) 所以要在resolve里加上setTimeout
+         其二 2.2.6规范 对于一个promise，它的then方法可以调用多次.（当在其他程序中多次调用同一个promise的then时 由于之前状态已经为FULFILLED/REJECTED状态，则会走的下面逻辑),所以要确保为FULFILLED/REJECTED状态后 也要异步执行onFulfilled/onRejected
+    
+        // 其二 2.2.6规范 也是resolve函数里加setTimeout的原因
+        // 总之都是 让then方法异步执行 也就是确保onFulfilled/onRejected异步执行
     */
     Promise.prototype.then = function(onFulfilled,onRejected){
+       // 处理参数默认值 保证参数后续能够继续执行
         onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : reason => reason //向后传递成功的value
         //指定默认的失败的回调（实现错误/异常穿透的关键点）
         onRejected = typeof onRejected === 'function' ? onRejected : reason => { //向后传递失败的reason
@@ -394,7 +409,9 @@
                     reject(error)
                 }
             }
+          
             if(_that.status === 'pending'){//假设当前状态还是 pending 状态，将回调函数 保存起来
+              // 当异步调用resolve/rejected时 将onFulfilled/onRejected收集暂存到集合中
                 _that.callbacks.push({
                     onFulfilled(value){
                         handle(onFulfilled)//改promise的状态为 onFulfilled状态
@@ -458,21 +475,23 @@
         Promise函数对象的all()
         返回了一个Promise实例，只有当所有的promise成功时才成功，否则一个失败就失败
     */
-    Promise.all = function(promises){
-        return new Promise((resolve,reject)=>{
-            const len = promises;
-            const res = [];
-            let index = 0 ;
-            for(let i=0;i>len;i++){
-                Promise.resolve(promises[i]).then(data=>{
-                    res[i] = data;
-                    index ++;
-                    if(index === len) resolve(res)
-                },error=>{
-                    reject(error)
-                })
+    Promise.all=(promises)=>{
+      return new Promise((resolve,reject)=>{
+        const len = promises.length;
+        const res =[];
+        let index = 0;
+        for(let i=0;i<len;i++){
+          Promise.resolve(promises[i]).then(data=>{
+            res[i] = data;
+            index ++;
+            if(index ===len){
+              resolve(res)
             }
-        })
+          },error=>{
+            reject(error)
+          })
+    		}
+      })
     }
     /*
         Promise函数对象的race()
@@ -526,6 +545,7 @@
 - 利用fetch api实现请求超时或者错误的时候做处理
     ```javascript
     //利用promise.race()
+    //封装两个promise 1个fetch请求。1个超时的promise
     //AbortController 用于手动终止一个或多个DOM请求，通过该对象的AbortSignal注入的Fetch的请求中。所以需要完美实现timeout功能加上这个就对了
     let controller = new AbortController();
     let signal = controller.signal;
@@ -572,44 +592,50 @@
     //分析：最多时存在两个并行的Promise，并且一个Promise执行完成之后，执行新的Promise，并且新执行的Promise不会影响到另一个正在执行的Promise
     //其实从Promise依序进行执行，可以使用队列先进先出的特性，add操作知识每次用队列中插入Promise Creator，判断当前执行数量是否小于2，如果小于2就从队列中弹出Promise Creator执行并给执行的Promise绑定then函数，then函数被调用就说明当前Promise已经执行完成，重复当前操作，可以看出是一个递归的操作
     class Scheduler {
-        constructor() {
-            this.queue = [];//存储Promise Creator的数组queue
-            this.maxCount = 2;//最大并行个数maxCount
-            this.runCounts = 0;//当前执行的Promise个数runCOunts
+      constructor() {
+        this.queue = [];
+        this.maxCount = 2;
+        this.runCounts = 0;
+      }
+      add(promiseCreator) {
+        this.queue.push(promiseCreator);
+      }
+      taskStart() {
+        for (let i = 0; i < this.maxCount; i++) {
+          this.request();
         }
-        add(promiseCreator) {//add操作函数就是往队列中插入Promise Generator函数
-            this.queue.push(promiseCreator);
+      }
+      request() {
+        if (!this.queue || !this.queue.length || this.runCounts >= this.maxCount) {
+          return;
         }
-        //接来下就是request函数：每次从队列中取出Promise Generator并执行，此Promise执行完成之后应该调用递归调用request函数做到执行下一个Promise。
-        request(){
-            if(!this.quene || !this.quene.length || this.runCounts >= this.maxCount) return 
-            this.runCounts ++ ;
-            this.quene.shift()().then(()=>{
-                this.runCounts -- ;
-                this.request();
-            })
-        }
-        //还差最后一个启动函数，需要将2个Promise启动起来
-        taskStart(){
-            for(let i=0;i<this.maxCount;i++){
-                this.request();
-            }
-        }
+        this.runCounts++;
+    
+        this.queue.shift()().then(() => {
+          this.runCounts--;
+          this.request();
+        });
+      }
     }
+       
     const timeout = time => new Promise(resolve => {
-        setTimeout(resolve, time);
+      setTimeout(resolve, time);
     })
+      
     const scheduler = new Scheduler();
+      
     const addTask = (time,order) => {
-        scheduler.add(() => timeout(time).then(()=>console.log(order)))
+      scheduler.add(() => timeout(time).then(()=>console.log(order)))
     }
-    //test
-    addTask(1000, '1');
+      
+      
+addTask(1000, '1');
     addTask(500, '2');
     addTask(300, '3');
     addTask(400, '4');
+      
     scheduler.taskStart()
-
+    
     ```
 - 渲染几万条数据不卡住页面
     ```javascript
