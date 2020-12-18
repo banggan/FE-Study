@@ -60,8 +60,8 @@ webpack与构建发展史
 - 解析es6和React jsx
 >解析ES6:使⽤babel-loader
 >babel的配置⽂件：.babelrc 
-babel plugins:⼀个插件对应⼀个功能
-babel preset:⼀个集合 @babel/preset-env 
+babel plugins:⼀个插件对应⼀个功能:插件是从前往后执行
+babel preset:⼀个集合 @babel/preset-env ： 从后往前执行。且晚于插件执行
 安装 npm i @babel/core @babel/preset-env babel-loader -D    （-D:--save-dev的简称）
 
 > 解析React JSX :增加React的babel preset配置:使⽤@babel/preset-react

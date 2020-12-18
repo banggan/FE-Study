@@ -54,21 +54,22 @@
         delete ctx.fn
         return res
     }
-    //bind
-    Function.prototype.bind = function (obj){
-        if(typeof this !== 'function'){ //非函数处理
-            throw new Error("Function.prototype.bind - what is trying to b e bound is not callable");
+    Function.prototype.bind = function(obj){
+        if(typeof this !==function){
+            throw new Error('error')
         }
-        var args = Array.prototype.slice.call(arguments, 1); // 第0位是this
-        var self = this;
-        var fn_ = function(){}; //创建一个空白函数
-        fn_.prototype =  this.prototype;
-        var bound = function(){
-            let params = [...args,...arguments]
-            let obj = this.instanceof fn_ ? this:obj;
-            self.apply(obj, params);
+        let args = Array.prototype.slice.call(arguments,1)//获取参数
+        let that = this;
+        let fn = function(){}//中转函数
+        let bound = function(){
+            let _params = Array.prototype.slice.call(arguments)
+            let params = [...args,..._params]
+            //this 调用时候的上下文,如果是new，需要绑定new之后的作用域
+            let obj = this instanceof fn ? this:obj;
+            that.apply(obj,params)
         }
-        bound.prototype = new fn_()
+        fn.prototype = that.prototype
+        bound.prototype = new fn();
         return bound;
     }
     ```
@@ -154,14 +155,20 @@
 - 实现 instanceOf
     ```javascript
     //instanceof 运算符用来检测 constructor.prototype 是否存在于参数 object 的原型链上
-    function instanceof(L,R){
-        var proR = R.prototype;//获取P的显示原型
+    function instanceof(L,ctor){
+        var proR = ctor.prototype;//获取P的显示原型
         var proL = L.__proto__;//获取L的隐式原型
         while(true){
             if(proL === null) return false;
             if(proR === proL) return true;
-            proL = L.__proto__;
+            proL = L.__proto__; // 否则，继续向原型链上游移动
         }
+    }
+    function instanceof(obj,ctor){
+        while(obj === obj && obj.__proto__){
+            if(obj.constructor === ctor) return true
+        }
+        return false
     }
 
     ```
@@ -227,31 +234,32 @@
     }
     
     ```
-```
-- ⽤setTimeout实现setInterval
-    ```javascript
-    function myInterval(fn, delay,isPause) { 
-        const interval = () => {
-            setTimeout(interval ,delay)
-            fn() 
+- setTimeout--setInterval
+    ```
+    - ⽤setTimeout实现setInterval
+        ```javascript
+        function myInterval(fn, delay,isPause) { 
+            const interval = () => {
+                setTimeout(interval ,delay)
+                fn() 
+            }
+            setTimeout(interval, delay)
         }
-        setTimeout(interval, delay)
-    }
-    //可控制的
-    var fun;
-    function countTimer(flag) {
-        if(flag){
-          fun = setTimeout(function () {
-             console.log("计数器=》" ,"ss")
-             countTimer(true)
-            },2000);
-        }else{
-            //结束函数
-            clearTimeout(fun)
+        //可控制的
+        var fun;
+        function countTimer(flag) {
+            if(flag){
+              fun = setTimeout(function () {
+                 console.log("计数器=》" ,"ss")
+                 countTimer(true)
+                },2000);
+            }else{
+                //结束函数
+                clearTimeout(fun)
+            }
         }
-    }
-    countTimer(true)
-```
+        countTimer(true)
+    ```
 - 字符串全排列
     ```javascript
     var fullpermutate = function(str){
@@ -1038,17 +1046,46 @@ addTask(1000, '1');
         return this;
     }
     ```
+- reduce​ vs ​map​ vs ​forEach​
+    ```javascript
+    //foreach
+    //1. forEach() 方法用于调用数组的每个元素，并将元素传递给回调函数:foreach对于空数组是不会执行回调函数
+    //2. array.forEach(function(currentValue, index, arr), thisValue)
+    //map
+    //1. 返回的是一个新数组，数组的元素是原始数组元素调用函数处理后的结果：map不会对空数组进行检测。不改变原始数组
+    //2. array.map(function(currentValue,index,arr), thisValue)
+    //reduce
+    //1. reduce() 方法接收一个函数作为累加器，数组中的每个值（从左到右）开始缩减，最终计算为一个值并返回,对于空数组是不会执行回调函数
+    //2. array.reduce(function(total, currentValue, currentIndex, arr), initialValue)
+
+    ```
+- for in vs for of
+    ```javascript
+    //for in :用for in不仅可以对数组,也可以对enumerable对象操作
+
+    //1. index索引为字符串型数字，不能直接进行几何运算
+    //2. 遍历顺序有可能不是按照实际数组的内部顺序
+    //3. 使用for in会遍历数组所有的可枚举属性，包括原型。
+    //例如上栗的原型方法method和name属性.所以for in更适合遍历对象，不要使用for in遍历数组. hasOwnPropery方法可以判断某属性是否是该对象的实例属性
+   //for of
+
+    //1. for of遍历的只是数组内的元素，而不包括数组的原型属性method和索引name
+    //总结
+    // for in 遍历的是数组的索引；for of 遍历的是数组的元素值
+    //for..of适用遍历数/数组对象/字符串/map/set等拥有迭代器对象的集合.但是不能遍历对象,因为没有迭代器对象.和和forEach()不同的是，它可以正确响应break、continue和return语句
+    //for-of循环不支持普通对象，但如果你想迭代一个对象的属性，你可以用for-in循环（这也是它的本职工作）或内建的Object.keys()方法
+    ```
 - map ⽅法
     ```javascript
     //map的参数:
     //1.currentValue  必须。当前元素的值   
     //2.index  可选。当期元素的索引值  
     //3.arr  可选。当期元素属于的数组对象
-    const map = function(fn,context){
-        let len = this.length; //调用者的长度 
+    const map = (fn)=>{
+        let len = this.length;
         let res = new Array(len);
-        for(let i =0 ;i<len;i++){
-            res[i] = fn.apply(this,[this[i],i,this])
+        for(let i=0;i<len;i++){
+            res[i] = fn.apply(this,[this[i]],i,this)
         }
         return res;
     }
