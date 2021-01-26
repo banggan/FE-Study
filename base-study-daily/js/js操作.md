@@ -235,9 +235,9 @@
     
     ```
 - setTimeout--setInterval
-    ```
     - ⽤setTimeout实现setInterval
         ```javascript
+        //setTimeout实现setInterval
         function myInterval(fn, delay,isPause) { 
             const interval = () => {
                 setTimeout(interval ,delay)
@@ -245,21 +245,14 @@
             }
             setTimeout(interval, delay)
         }
-        //可控制的
-        var fun;
-        function countTimer(flag) {
-            if(flag){
-              fun = setTimeout(function () {
-                 console.log("计数器=》" ,"ss")
-                 countTimer(true)
-                },2000);
-            }else{
-                //结束函数
-                clearTimeout(fun)
-            }
+        //setInterval实现 setTimeout
+        function mySetTimeOut(fn,delay)=>{
+            let timer = setInterVal(()=>{
+                clearInterval(timer)
+                fn()
+            },delay)
         }
-        countTimer(true)
-    ```
+        ```
 - 字符串全排列
     ```javascript
     var fullpermutate = function(str){
@@ -298,7 +291,7 @@
         typeof value === 'object' ? {...acc,[key]:deepCopy(value)}:{...acc,[key]:value}
     },{})
     //数组
-    obj.reduce((acc,cur)=>{
+    obj.reduce((acc,cur)=>'{
         cur instanceof Array ? [...acc,deepCopy(cur)]:[...acc,cur]
     },[])
     //版本3:考虑symbol属性
@@ -347,7 +340,7 @@
             _that.data = value;    //保存数据
             if(value instanceof promise){
               return value.then(resolve,reject)
-    				}
+    		}
              // 为什么resolve 加setTimeout?
             // 2.2.4规范 onFulfilled 和 onRejected 只允许在 execution context 栈仅包含平台代码时运行.
             // 注1 这里的平台代码指的是引擎、环境以及 promise 的实施代码。实践中要确保 onFulfilled 和 onRejected 方法异步执行，且应该在 then 方法被调用的那一轮事件循环之后的新执行栈中执行。
@@ -498,7 +491,7 @@
           },error=>{
             reject(error)
           })
-    		}
+    	}
       })
     }
     /*
@@ -583,6 +576,101 @@
             fetchPromise("https://www.baidu.com")
         })
     ```
+- 实现一个lazyman。链死调用
+    ```javascript
+    class Man {
+        constructor(){
+            this.task = []
+            setTimeout(()=>{
+                this.next()
+            },0)
+        }
+        sleepFirst(time){
+            const fn = ()=>{
+                setTimeout(()=>{
+                    console.log('sleepfirst',time)
+                    this.next()
+                },time)
+            }
+            this.task.unshift(fn);
+            return this;
+        }
+        sleep(time){
+            const fn = ()=>{
+                setTimeout(()=>{
+                    console.log('sleep',time)
+                    this.next()
+                },time)
+            }
+            this.task.push(fn);
+            return this;
+        }
+        eat(food){
+            const fn = ()=>{
+                console.log('eat',food)
+                this.next()
+            }
+            this.task.unshift(fn);
+            return this;
+        }
+        next(){
+            let fn = this.task.shift()
+            fn && fn()
+        }
+    }
+    let person = new Man()
+    person.eat('11').sleep(2000).sleepFirst(3000)
+    ```
+- 实现10个串行的请求
+    ```javascript
+    //async await实现
+    let fn = async functions(promises){
+        let len = promises.length
+        for(let i =0;i<len;i++){
+            let currentPromise = (promises[i] instanceof Promise) ? promises[i]:Promise.resolve(promises[i]);
+            let res = await currentPromise;
+            console.log(res)
+        }
+    }
+    let arr = [()=>console.log(1),()=>console.log(2),()=>console.log(3)]
+    //promise 
+    function serpromise(arr) {
+      arr.reduce((pre, next, index, carr)=>{
+       return pre.then(next)
+      }, Promise.resolve())
+     }
+    var createPromise = function(time) {
+      return (resolve, reject)=> {
+       return new Promise((resolve, reject)=>{
+        setTimeout(()=>{
+         console.log('timein'+time)
+         resolve();
+        }, time*1000)
+       })
+      }
+     }
+    let arr = [createPromise(1),createPromise(3),createPromise(2),createPromise(4)]
+    serpromise(arr)
+    ```
+- 实现一个repeat函数，使一个函数每间隔固定时间执行一次，共执行N次
+    ```javascript
+    const repeat= (fn, interval, n) =>{
+        let count = 0;
+        return ()=>{
+          let timer = setInterval(()=>{
+              count++;
+              fn();
+              if(count === n){    
+                clearTimeout(timer)
+                count = null
+              }
+          }, interval);
+        }
+    }
+    let repeatFun = repeat(()=>console.log(1),3000,5)
+    repeatFun()
+    ```
+
 - 实现有并行限制的Promise调度器
     ```javascript
     //
@@ -634,10 +722,8 @@
       
     const addTask = (time,order) => {
       scheduler.add(() => timeout(time).then(()=>console.log(order)))
-    }
-      
-      
-addTask(1000, '1');
+    }    
+    addTask(1000, '1');
     addTask(500, '2');
     addTask(300, '3');
     addTask(400, '4');
@@ -874,6 +960,7 @@ addTask(1000, '1');
     }
     Child.prototype = Object.create(Parent.prototype)
     Child.prototype.constructor = Child;
+    //ES6
     class Parent{
         constructor(name){
             this.name = name
@@ -923,7 +1010,8 @@ addTask(1000, '1');
         args.length < fn.length?(...argmentxss)=>currying(fn,...args,...argments):fn(...args)
     ```
 
-#### 数组相关
+
+
 - 数组展平
     - 数组扁平化
     ```javascript
@@ -1072,62 +1160,117 @@ addTask(1000, '1');
     //1. for of遍历的只是数组内的元素，而不包括数组的原型属性method和索引name
     //总结
     // for in 遍历的是数组的索引；for of 遍历的是数组的元素值
-    //for..of适用遍历数/数组对象/字符串/map/set等拥有迭代器对象的集合.但是不能遍历对象,因为没有迭代器对象.和和forEach()不同的是，它可以正确响应break、continue和return语句
+    //for of适用遍历数/数组对象/字符串/map/set等拥有迭代器对象的集合.但是不能遍历对象,因为没有迭代器对象.和和forEach()不同的是，它可以正确响应break、continue和return语句
     //for-of循环不支持普通对象，但如果你想迭代一个对象的属性，你可以用for-in循环（这也是它的本职工作）或内建的Object.keys()方法
-    ```
+   ```
 - map ⽅法
     ```javascript
-    //map的参数:
+    //map的参数:fn(currentValue,index,arr)  返回的是一个新数组
     //1.currentValue  必须。当前元素的值   
     //2.index  可选。当期元素的索引值  
     //3.arr  可选。当期元素属于的数组对象
     const map = (fn)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
+        }
         let len = this.length;
         let res = new Array(len);
         for(let i=0;i<len;i++){
-            res[i] = fn.apply(this,[this[i]],i,this)
+            res[i] = fn(this[i],i,this)
         }
         return res;
     }
     ```
+- reduce 方法
+    ```javascript
+    //reduce参数：（fn(total,currentValue,index,arr),initValue）
+    //total：必需。初始值, 或者计算结束后的返回值。
+    //currentValue  必需：当前元素的值   
+    //index  当期元素的索引值  
+    //arr  当期元素属于的数组对象
+    //z注意 reduce() 对于空数组是不会执行回调函数的
+    const myReduce = (fn,initValue)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
+        }
+        let len = this.length;
+        let hasInitValue  = initValue !== undefined;
+        let value = hasInitValue ? initValue:this[0];
+        for(let i = hasInitValue?0:1;i<len;i++){
+            value = fn(value,this[i],i,this)
+        }
+        return value;
+    }
+    ```
 - filter 方法
     ```javascript
-    //filter的参数:
-    const myFilter = function(callback){
-        if(this == undefined){
-            throw new TypeError('this is null or not undefined');
+    //filter的参数:(fn(currentValue,index,arr))
+    //满足条件才返回
+    const myFilter = (fn)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
         }
-        if(typeof callback !== 'function'){
-            throw new TypeError(callback + 'is not a function');
-        }
-        const res = [];
         let len = this.length;
-        for(let i = 0;i<len;i++){
-            let item = this[i];
-            if(callback(item,i,this)){
-                 res.push(this[i])
+        let res = [];
+        for(let i =0;i<len;i++){
+            if(fn(this[i],i,this)){
+                res.push(this[i])
             }
         }
-        return res
+        return res;
     }
     ```
 - foreach 方法
     ```javascript
-    //foreach和map类似 但是没有返回值:
-    const myForrach = function(callback){
-        if(this == undefined){
-            throw new TypeError('this is null or not undefined');
+    //foreach和map类似 但是没有返回值: 没有返回值
+    const myForrach = (fn)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
         }
-        if(typeof callback !== 'function'){
-            throw new TypeError(callback + 'is not a function');
+        let len = this.length；
+        for(let i =0;i<len;i++){
+            fn(this[i],i,this)
         }
-        const res = [];
+    }
+    ```
+- every 方法
+    ```javascript
+    //every() 方法使用指定函数检测数组中的所有元素
+    //如果数组中检测到有一个元素不满足，则整个表达式返回 false ，且剩余的元素不会再进行检测。
+    //如果所有元素都满足条件，则返回 true。
+    //注意： every() 不会对空数组进行检测。
+    //注意： every() 不会改变原始数组
+    const myEvery = (fn)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
+        }
         let len = this.length;
-        let k = 0;
-        for(let i=0;i<len;i++){
-            callback.apply(this.this[i],i,this);
-            k++;
+        for(let i =0;i<len;i++){
+           if(! fn(this[i],i,this)){
+            return false
+           }
         }
+        return true
+    }
+    ```
+- some 方法
+    ```javascript
+    //some() 方法用于检测数组中的元素是否满足指定条件
+    //如果有一个元素满足条件，则表达式返回true , 剩余的元素不会再执行检测。
+    //如果没有满足条件的元素，则返回false
+    //注意： some() 不会对空数组进行检测。
+    //注意： some() 不会改变原始数组
+    const mySome = (fn)=>{
+        if(Array.isArray(this) || this.length || typeof fn !== 'function'){
+            return 
+        }
+        let len = this.length;
+        for(let i =0;i<len;i++){
+           if(fn(this[i],i,this)){
+            return true
+           }
+        }
+        return false
     }
     ```
 - 设计模式
@@ -1188,4 +1331,166 @@ addTask(1000, '1');
   console.log(winner.getName);       //winner
   console.log(looser.getName);       //looser
   ```
+- 判断括号
+    ```javascript
+    /**
+    * 判断括号匹配
+    * 说明：给定一个只包含 '() {} []' 6种字符的字符串，
+    *   实现一个方法来检测该字符串是否合法，其规则为'()'、'{}'、'[]'必须互相匹配，可嵌套。
+    * 示例：
+    *   isValid('(');          // false
+    *   isValid('()');         // true
+    *   isValid('()[]{}');     // true
+    *   isValid('{()[]}');     // true
+    *   isValid('(]');         // false
+    *   isValid('([)]');       // false
+    *   isValid('({}[]([]))'); // true
+    */
+    function isValid(str) {
+      let stack = [],len = str.length;
+      for(let i=0;i<len;i++){
+          if(str[i] === '(' || str[i] === '[' || str[i] === '{'){
+              //左括号就添加进栈
+              stack.push(str[i])
+          }else if(str[i] === ')'){//遇到右括号判断数组最后一个元素是否与当前元素匹配
+            if(stack[stack.length-1] === '('){
+                stack.pop();//
+            }else{
+                return false
+            }
+          }else if(str[i] === ']'){
+            if(stack[stack.length-1] === ']'){
+                stack.pop();//
+            }else{
+                return false
+            }
+          }else{
+            if(stack[stack.length-1] === '}'){
+                stack.pop();//
+            }else{
+                return false
+            }
+          }
+      }
+      if(stack.length === 0) return true
+      return false
+    }
+    ```
+- 驼峰转下划线
+    ```javascript
+    /** 
+    ** 驼峰转下划线/下划线转驼峰：
+    */
+    //下划线转驼峰
+    function toHump(name) {
+        return name.replace(/\_(\w)/g, function(all, letter){
+            console.log(all,letter)
+            return letter.toUpperCase();
+        });
+    } 
+    //驼峰转下划线
+    function toLine(name) {
+        return name.replace(/([A-Z])/g,"_$1").toLowerCase();
+    }
+    ```
+- 千分位实现
+    ```javascript
+    //正则实现在最后一次匹配之
+    //?=：非获取匹配，正向肯定预查，在任何匹配pattern的字符串开始处匹配查找字符串，该匹配不需要获取供以后使用。例如，   “Windows(?=95|98|NT|2000)”能匹配“Windows2000”中的“Windows”，但不能匹配“Windows3.1”中的“Windows”。预查  不消耗字符，也就是说，在一个匹配发生后，后立即开始下一次匹配的搜索，而不是从包含预查的字符之后开始。
+    // +匹配前面的子表达式一次或多次
+    //^是正则表达式匹配字符串开始位置
+    //$是正则表达式匹配字符串结束位置
+    //$&表示replace()函数第一个正则表达式参数所匹配的内容
+    str.replace(/\d{1,3}(?=(\d{3})+$)/g,'$&.')
+    let str = '12345678'
+    let res = str.replace(/\d{1,3}(?=(\d{3})+$)/g,'$&.')
+    console.log(res)
+    const covert = (str)=>{
+        str = str+'';
+        let res = '',len = str.length;
+        for(let i=len-1,j=1;i>=0;i--,j++){
+            if(j%3===0){//三位数 
+                res+=str[i]+'.';
+                continue
+            }
+            res+=str[i]
+        }
+        console.log(res)
+        return res.split('').reverse().join('')
+    }
 
+    //考虑小数点
+    function format(num) {
+        return (
+          num &&
+          num.toString().replace(/^\d+/, m => m.replace(/\d{1,3}(?=(\d{3})+$)/g, '$&,'))
+        )
+    }
+    console.log(format(1234567.9)) // output: 1,234,567.90
+    ```
+- "insurance-order-detail" => "InsuranceOrderDetail"
+    ```javascript
+    var str = "insurance-order-detail";
+    function titleCase(str){
+        let arr = str.toLowerCase().split('-');
+        for(let i=0;i<arr.length;i++){
+            arr[i] = arr[i][0].toUpperCase() + arr[i].substring(1,arr[i].length)
+        }
+        return arr.join('')
+    }
+    console.log('===',titleCase(str))
+    ```
+-  "​www.toutiao.com​"          => "com.toutiao.www"
+    ```javascript
+    var str = "​www.toutiao.com​";
+    function titleCase(str){
+        let arr = str.split('.');
+        return arr.reverse().join('.')
+    }
+    console.log('===',titleCase(str))
+    ```
+- 模版匹配
+    ```javascript
+    let data = {
+      name:'小明',
+      age:18,
+      sex:'男'
+    }
+    let obj2 = render(template, data); //我是小明，年龄18，性别男
+    console.log(obj2);
+    function render(template, data){
+         return template.replace(/\{\{(\w+)\}\}/g,(p1,p2)=>{
+            console.log(p1,p2)  //p1:{{name}}   p2:name
+            return data[p2]
+        })
+    }
+    //
+    const fun = (str,obj)=>{
+        let i = 0,len=str.length,start = 0,end=0,flag=false,res = '';
+        while(i++<len){
+            if(str.charAt(i) === '$' && str.charAt(i+1) === '{' ){
+                start = i+2;
+                flag = true;
+            }else if(str.charAt(i) === '}' && flag ){
+                let key = str.substring(start,i)// 找到key name age
+                res += str.substring(end,start-2)+obj[key];
+                end = i+1;
+                flag = false
+            }
+        }
+        console.log(end,'end')
+        if(end<len){
+            res +=str.substring(end,len)
+        }
+        return res
+    }
+    const str = '我是${name}年龄${age}性别'
+    const obj = {
+        name: 'xiaoming',
+        age: 999
+    }
+
+    let nstr = fun(str,obj)
+    console.log(nstr)
+
+    ```

@@ -1,7 +1,18 @@
-function format(num) {
-    return (
-      num &&
-      num.toString().replace(/^\d+/, m => m.replace(/\d{1,3}(?=(\d{3})+$)/g, '$&,'))
-    )
+const find =(str)=>{
+  let map = [],max = '';
+  for(let i=0;i<str.length;i++){
+    let index = map.indexOf(str[i]);
+    if(index !== -1){//map 里面有
+      map.splice(0,index+1)
+    }
+    map.push(str[i]);
+    if(max.length <map.length){
+      max = '';
+      for(let i = 0;i<map.length;i++){
+        max+=map[i]
+      }
+    }
   }
-  console.log(format(1234567.9567)) // output: 1,234,567.90
+  return max;
+}
+console.log(find('1231456'))
