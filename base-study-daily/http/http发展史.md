@@ -1,7 +1,7 @@
 #### HTTP发展史
 学习时间：7.1-7.31
 ##### 1.1 http发展史
->http\0.9(1991)---http\0.9---http\1.0---http\1.1---SPDY---QUIC---http\2.0(2015)---http\3.0(2018)
+>http\0.9---http\1.0---http\1.1---SPDY---QUIC---http\2.0(2015)---http\3.0(2018)
 
 ##### 1.2 QUIC 协议概览
 >QUIC（Quick UDP Internet Connections，快速 UDP 网络连接） 基于 UDP，正是看中了 UDP 的速度与效率。同时 QUIC 也整合了 TCP、TLS 和 HTTP/2 的优点，并加以优化。用一张图可以清晰地表示他们之间的关系。
