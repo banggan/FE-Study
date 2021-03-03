@@ -1,0 +1,28 @@
+<script> 
+    import {reactive,ref,computed,watchEffect,watch,onMounted} from 'vue' //ref---不用.value
+
+    export default{
+        props:['id'],
+        setup(props){
+            const fetchedData = ref(null)
+
+            watchEffect(()=>{
+                fetch(`url${props.id}`).then(res=>res.json()).then(data=>{
+                    fetchedData.value = data
+                })
+            }) // 直接获取函数并运行，一有变化重新运行 不是懒惰的
+            const count = ref(0)
+            const plusOne = computed(()=>state.count+1)
+            watch([count,plusOne],([count,plusOne],[oldCount,oldPlusOne])=>{ // 定义一个源，回调接受count以及以前的值，明确什么时候触发回调执行，进行复杂的计算 结果还是一个值，回调不触发--- 懒惰的
+                
+            })
+
+            onMounted(()=>console.log('mounted')) // 记录生命周期
+
+            return {
+                state,
+                increment:()=>{state.sount++}
+            }
+        }
+    }
+</script>
