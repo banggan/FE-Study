@@ -1,0 +1,82 @@
+<script>
+    let activeEffect
+    class Dep{
+        subscribers = new Set()
+        depend(){
+            if(activeEffect){
+                this.subscribers.add(activeEffect)
+            }
+        }
+        notify(){
+            this.subscribers.forEach(effect=>{
+                effect()
+            })
+        }
+    }
+    function watchEffect(effect){
+        activeEffect = effect
+        effect()
+        activeEffect = null
+    }
+    const targetMap = new WeakMap() // 目标为对象，对象为键值  垃圾回收
+    function getDep(target,key){
+        //dep ？
+        let depsMap = targetMap.get(target)
+        if(!depsMap){
+            depsMap = new Map() //任何作为key 迭代枚举所有的key
+            targetMap.set(target,depsMap)
+        }
+        let dep = depsMap.get(key)
+        if(!dep){
+            dep = new Dep()
+            depsMap.set(key,dep)
+        }
+        return dep
+    }
+    const reactiveHandlers = {
+        get(target,key,receiver){
+            const dep = getDep(target,key)
+            dep.depend()
+            return Reflect.get(target,key,receiver) //任何情况下一致 target[key]
+        },
+        set(target,key,value,receiver){
+            const dep = getDep(target,key)
+            const result = Reflect.set(target,key,value,receiver)
+            dep.notify()
+            return result
+        },
+        has(){ //state in 
+
+        },
+        ownKeys(){ //object.keys()
+
+        }
+    }
+
+    function reactive(raw){
+        // Object.keys(raw).forEach(key=>{
+        //     const dep = new Dep()
+        //     let value = raw[key]
+        //     Object.defineProperty(raw,key,{
+        //         get(){
+        //             dep.depend()
+        //             return value
+        //         },
+        //         set(newValue){
+        //             value = newValue
+        //             dep.notify()
+        //         }
+        //     })
+        // })
+        // return raw
+        return new Proxy(raw,reactiveHandlers) //检查新的属性
+    }
+
+    const state = reactive({
+        count:0
+    })
+    watchEffect(()=>{
+        console.log(state.count) //0
+    })
+    state.count ++ //1
+</script>
