@@ -1,0 +1,74 @@
+<script src="https://unpkg.com/vue@next"></script>
+<div id="app">
+</div>
+
+<script>
+    const {createApp,ref,watchEffect} = Vue
+
+    function usePost(getId){
+        console.log('22',getId())
+        return useFetch(()=>`https://jsonplaceholder.typicode.com/todos/${getId()}`)
+    }
+
+    function useFetch(getUrl){
+        const data = ref(null)
+        const error = ref(null)
+        const isPending = ref(true)
+
+        watchEffect(()=>{
+            isPending.value = true
+            data.value = null
+            error.value = null
+            fetch(getUrl())
+            .then(res=>res.json())
+            .then(_data=>{
+                setTimeout(() => {
+                    data.value = _data
+                    isPending.value = false
+                }, 1000);
+            })
+            .catch(err=>{
+                error.value = err
+                isPending.value = false
+            })
+        })
+        
+        return {
+            data,
+            error,
+            isPending
+        } 
+    }
+    const Post = {
+        template:`
+        <div v-if="isPending">loading....</div>
+        <div v-else-if='data'>{{data}}</div>
+        <div v-else-if="error">Something went wrong:{{error.message}}</div>
+        `,
+        props:['urlId'],
+        setup(props){
+            const {data,error,isPending} = usePost(()=>props.urlId)
+
+            return {
+                data,
+                error,
+                isPending
+            }
+        }
+    }
+    const App = {
+        components:{ Post },
+        data(){
+            return {
+                urlId:1
+            }
+        },
+        template:`
+        <button @click="urlId++">change {{urlId}}</button>
+        <Post :urlId="urlId" />
+        `
+    }
+
+    createApp(App).mount('#app')
+
+</script>

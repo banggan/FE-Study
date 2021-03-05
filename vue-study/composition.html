@@ -1,10 +1,22 @@
 <script> 
     import {reactive,ref,computed,watchEffect,watch,onMounted} from 'vue' //ref---不用.value
-
+    function useFeatureA(){
+        const foo = ref(0)
+        const plusone = computed(()=>foo.value+1)
+        watchEffect(()=>{})
+        return {
+            foo,
+            plusone
+        }
+    }
     export default{
         props:['id'],
         setup(props){
             const fetchedData = ref(null)
+            //feature A
+            const {foo,plusone} = useFeatureA()
+            //feature B
+            //feature C
 
             watchEffect(()=>{
                 fetch(`url${props.id}`).then(res=>res.json()).then(data=>{

@@ -1,0 +1,42 @@
+<script src="https://unpkg.com/vue@next"></script>
+
+<div id = "app">{{postFontSize}}
+    <button-counter :title="title" @button-click="postFontSize+=$event"></button-counter>
+</div>
+
+<script>
+    const {createApp} = Vue
+    const App = Vue.createApp({
+        data(){
+            return{
+                postFontSize:1,
+                title:'my vue study'
+            }
+        }
+    })
+
+    App.component('button-counter',{
+        props:['title'],
+        // emits:['button-click'],
+        data(){
+            return {
+                count:0
+            }
+        },
+        template:`
+            <h4>{{title}}</h4>
+            <button @click="$emit('buttonClick',4)">
+                click me {{count}} times
+            </button>
+        `
+    })
+    App.mount('#app')
+</script>
+
+
+
+
+
+
+
+

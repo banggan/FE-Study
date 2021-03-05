@@ -1,0 +1,94 @@
+<script src="https://unpkg.com/vue@next"></script>
+<div id="app"></div>
+<script>
+    const {createApp,h,ref,onMounted,onUnmounted} = Vue
+    //mixins实现 ---问题：命名空间--react的高阶组件
+    const MouseMixin = {
+        data(){
+            return {
+                x:0,
+                y:0
+            }
+        },
+        methods:{
+            update(e){
+                this.x = e.pageX
+                this.y = e.pageY
+            }
+        },
+        mounted(){
+            window.addEventListener('mousemove',this.update)
+        },
+        unmounted(){
+            window.removeEventListener('mousemove',this.update)
+        }
+    }
+    //slot作用域插槽
+    const Mouse = {
+        data(){
+            return {
+                x:0,
+                y:0
+            }
+        },
+        methods:{
+            update(e){
+                this.x = e.pageX
+                this.y = e.pageY
+            }
+        },
+        mounted(){
+            window.addEventListener('mousemove',this.update)
+        },
+        unmounted(){
+            window.removeEventListener('mousemove',this.update)
+        },
+        template:`<slot :x="x" :y="y" />`,
+        render(){
+            return this.$slots.default && this.$slots.default({
+                x:this.x,
+                y:this.y
+            })
+        }
+    }
+    //setup
+    function useMouse(){
+        const x = ref(0)
+        const y = ref(0)
+        const update = e=>{
+            x.value = e.pageX
+            y.value = e.pageY
+        }
+        onMounted(()=>{
+            window.addEventListener('mousemove',update)
+        })
+        onUnmounted(()=>{
+            window.removeEventListener('mousemove',update)
+        })
+        return {x,y}
+    }
+    //setup
+    
+    const App = {
+        setup(){
+            const {x,y} = useMouse()
+            return {x,y}
+        },
+        template:`{{x}} {{y}}`    
+    }
+    //slot  解决===涞源不明+命名空间冲突
+    // const App = {
+    //     components:{Mouse},
+    //     template:`
+    //     <Mouse v-slot = "{x,y}">
+    //         {{x}} {{y}}
+    //     </Mouse>
+    //     `    
+    // }
+    //mixins
+    // const App = {
+    //     mixins:[MouseMixin],
+    //     template:`{{x}} {{y}}`    
+    // }
+    createApp(App).mount('#app')
+</script>
